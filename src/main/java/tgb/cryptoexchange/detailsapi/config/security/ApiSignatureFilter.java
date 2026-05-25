@@ -10,6 +10,7 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
+import tgb.cryptoexchange.detailsapi.dto.ClientApiErrorResponse;
 import tgb.cryptoexchange.detailsapi.dto.ClientByApiKeyDTO;
 import tgb.cryptoexchange.detailsapi.enums.ClientStatus;
 import tgb.cryptoexchange.detailsapi.exceptions.BaseException;

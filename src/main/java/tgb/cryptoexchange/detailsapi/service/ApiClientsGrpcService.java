@@ -14,11 +14,9 @@ import tgb.cryptoexchange.grpc.generated.ClientsServiceGrpc;
 import tgb.cryptoexchange.grpc.generated.GetClientByApiKeyGrpc;
 import tgb.cryptoexchange.grpc.generated.GetClientByApiKeyResponseGrpc;
 
-import java.util.concurrent.CompletableFuture;
-
 @Service
 @Slf4j
-public class ApiClientsGrpcService {
+public class ApiClientsGrpcService extends GrpcService {
 
     private final ClientsServiceGrpc.ClientsServiceFutureStub clientsFutureStub;
 
@@ -56,19 +54,5 @@ public class ApiClientsGrpcService {
         }
     }
 
-    /**
-     * Утилитарный метод перевода Guava ListenableFuture в CompletableFuture
-     */
-    private <T> CompletableFuture<T> toCompletableFuture(ListenableFuture<T> listenableFuture) {
-        CompletableFuture<T> completableFuture = new CompletableFuture<>();
-        listenableFuture.addListener(() -> {
-            try {
-                completableFuture.complete(listenableFuture.get());
-            } catch (Exception e) {
-                completableFuture.completeExceptionally(e);
-            }
-        }, Runnable::run);
-        return completableFuture;
-    }
 
 }

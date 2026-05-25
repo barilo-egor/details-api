@@ -10,6 +10,8 @@ spring:
       channels:
         api-clients:
           address: ""
+        api-merchant-details:
+          address: ""
   datasource:
     username: ""
     password: ""
