@@ -12,6 +12,8 @@ spring:
           address: ""
         api-merchant-details:
           address: ""
+        api-orders:
+          address: ""
   datasource:
     username: ""
     password: ""

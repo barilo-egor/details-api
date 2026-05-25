@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import tgb.cryptoexchange.detailsapi.dto.ClientApiErrorResponse;
 import tgb.cryptoexchange.detailsapi.exceptions.BaseException;
+import tgb.cryptoexchange.detailsapi.exceptions.EnableUniqueAmountException;
 
 import java.util.stream.Collectors;
 
@@ -41,6 +42,19 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorResponse);
+    }
+
+    @ExceptionHandler(EnableUniqueAmountException.class)
+    public ResponseEntity<ClientApiErrorResponse> handleEnableUniqueAmountError(Exception ex) {
+        log.error("Клиент запросил enableUniqueAmount=false, но api-merchant-details вернул amount.");
+
+        ClientApiErrorResponse errorResponse = new ClientApiErrorResponse(
+                "Internal server error",
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Something went wrong. Please report this issue to our support team."
+        );
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 
 }

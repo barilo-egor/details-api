@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.grpc.client.GrpcChannelFactory;
 import tgb.cryptoexchange.grpc.generated.ClientsServiceGrpc;
 import tgb.cryptoexchange.grpc.generated.MerchantDetailsServiceGrpc;
+import tgb.cryptoexchange.grpc.generated.OrdersServiceGrpc;
 
 @Configuration
 public class GrpcConfig {
@@ -24,10 +25,10 @@ public class GrpcConfig {
     }
 
     @Bean
-    public MerchantDetailsServiceGrpc.MerchantDetailsServiceFutureStub merchantDetailsServiceFutureStub(
+    public OrdersServiceGrpc.OrdersServiceFutureStub ordersServiceFutureStub(
             GrpcChannelFactory channelFactory) {
-        Channel channel = channelFactory.createChannel("api-merchant-details");
-        return MerchantDetailsServiceGrpc.newFutureStub(channel);
+        Channel channel = channelFactory.createChannel("api-orders");
+        return OrdersServiceGrpc.newFutureStub(channel);
     }
 
 

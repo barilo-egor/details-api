@@ -25,7 +25,7 @@ public class CreateOrderDTO {
     @Builder.Default
     private boolean enableUniqueAmount = false;
 
-    private String callback;
+    private String callbackUrl;
 
     private String userId;
 
