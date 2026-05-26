@@ -3,10 +3,13 @@ package tgb.cryptoexchange.detailsapi.controller;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
+import tgb.cryptoexchange.detailsapi.dto.ApiDetailsRequestDTO;
 import tgb.cryptoexchange.detailsapi.dto.ApiDetailsResponseDTO;
 import tgb.cryptoexchange.detailsapi.dto.CreateOrderDTO;
 import tgb.cryptoexchange.detailsapi.mapper.DetailsMapper;
 import tgb.cryptoexchange.detailsapi.service.ApiMerchantDetailsGrpcService;
+
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -30,8 +33,11 @@ public class OrdersController {
 
             return;
         }
-        ApiDetailsResponseDTO detailsResponseDTO = detailsGrpcService.getDetails(
-                detailsMapper.orderToRequestDTO(orderDTO));
+        ApiDetailsRequestDTO apiDetailsRequestDTO = detailsMapper.orderToRequestDTO(orderDTO);
+        UUID orderId = apiDetailsRequestDTO.getInternalId();
+        ApiDetailsResponseDTO detailsResponseDTO = detailsGrpcService.getDetails(apiDetailsRequestDTO);
+
+
 
     }
 

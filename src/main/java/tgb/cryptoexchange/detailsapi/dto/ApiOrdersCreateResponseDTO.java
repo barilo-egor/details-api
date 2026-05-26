@@ -3,6 +3,7 @@ package tgb.cryptoexchange.detailsapi.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -22,5 +23,9 @@ public class ApiOrdersCreateResponseDTO {
     private boolean enableUniqueAmount;
 
     private String callbackUrl;
+
+    private Instant createdAt;
+
+    private Instant expiresAt;
 
 }

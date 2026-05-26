@@ -10,6 +10,7 @@ import tgb.cryptoexchange.detailsapi.exceptions.EnableUniqueAmountException;
 import tgb.cryptoexchange.grpc.generated.CreateOrderGrpc;
 import tgb.cryptoexchange.grpc.generated.CreateOrderResponseGrpc;
 
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -17,7 +18,7 @@ import java.util.UUID;
 @Component
 public class OrdersMapper {
 
-    public ApiOrdersCreateRequestDTO createRequestDTO(CreateOrderDTO clientRequest,
+    public ApiOrdersCreateRequestDTO createRequestDTO(UUID orderId, CreateOrderDTO clientRequest,
             ApiDetailsResponseDTO detailsResponseDTO) {
         Integer amount;
         if (clientRequest.isEnableUniqueAmount()) {
@@ -32,6 +33,7 @@ public class OrdersMapper {
         }
 
         return ApiOrdersCreateRequestDTO.builder()
+                .id(orderId)
                 .clientId(Long.valueOf(clientRequest.getUserId()))
                 .internalId(clientRequest.getInternalId())
                 .merchant(detailsResponseDTO.getMerchant())
@@ -67,6 +69,14 @@ public class OrdersMapper {
                 .amount(response.getAmount())
                 .enableUniqueAmount(response.getEnableUniqueAmount())
                 .callbackUrl(response.getCallbackUrl())
+                .created_at(response.hasCreatedAt() ? Instant.ofEpochSecond(
+                        response.getCreatedAt().getSeconds(),
+                        response.getCreatedAt().getNanos()
+                ) : null)
+                .expires_at(response.hasExpiresAt() ? Instant.ofEpochSecond(
+                        response.getExpiresAt().getSeconds(),
+                        response.getExpiresAt().getNanos()
+                ) : null)
                 .build();
     }
 

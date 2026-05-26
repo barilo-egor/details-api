@@ -3,9 +3,13 @@ package tgb.cryptoexchange.detailsapi.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.UUID;
+
 @Data
 @Builder
 public class ApiOrdersCreateRequestDTO {
+
+    private UUID id;
 
     private Long clientId;
 

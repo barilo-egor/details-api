@@ -11,19 +11,20 @@ import "buf/validate/validate.proto";
 
 service OrdersService {
 
-  rpc CreateOrder (CreateOrderGrpc) returns (google.protobuf.Empty);
+  rpc CreateOrder (CreateOrderGrpc) returns (CreateOrderResponseGrpc);
 
 }
 
 message CreateOrderGrpc {
-  int64 client_id = 1 ;
-  string internal_id = 2;
-  string merchant = 3 ;
-  string merchant_order_id = 4;
-  string merchant_order_status = 5;
-  int32 amount = 6 ;
-  bool enable_unique_amount = 7;
-  optional string callback_url = 8;
+  string id = 1;
+  int64 client_id = 2;
+  string internal_id = 3;
+  string merchant = 4;
+  string merchant_order_id = 5;
+  string merchant_order_status = 6;
+  int32 amount = 7;
+  bool enable_unique_amount = 8;
+  optional string callback_url = 9;
 }
 
 message CreateOrderResponseGrpc {
@@ -34,5 +35,7 @@ message CreateOrderResponseGrpc {
   int32 amount = 5;
   bool enable_unique_amount = 6;
   optional string callback_url = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp expires_at = 9;
 }
 
