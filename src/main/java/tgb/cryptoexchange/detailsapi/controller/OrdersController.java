@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import tgb.cryptoexchange.detailsapi.dto.ApiDetailsRequestDTO;
 import tgb.cryptoexchange.detailsapi.dto.ApiDetailsResponseDTO;
+import tgb.cryptoexchange.detailsapi.dto.ApiOrdersCreateRequestDTO;
 import tgb.cryptoexchange.detailsapi.dto.CreateOrderDTO;
 import tgb.cryptoexchange.detailsapi.mapper.DetailsMapper;
 import tgb.cryptoexchange.detailsapi.service.ApiMerchantDetailsGrpcService;
@@ -37,7 +38,7 @@ public class OrdersController {
         UUID orderId = apiDetailsRequestDTO.getInternalId();
         ApiDetailsResponseDTO detailsResponseDTO = detailsGrpcService.getDetails(apiDetailsRequestDTO);
 
-
+        ApiOrdersCreateRequestDTO
 
     }
 
