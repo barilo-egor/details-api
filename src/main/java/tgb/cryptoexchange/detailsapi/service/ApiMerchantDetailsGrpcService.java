@@ -38,7 +38,8 @@ public class ApiMerchantDetailsGrpcService extends GrpcService {
             if (cause instanceof StatusRuntimeException statusEx) {
                 com.google.rpc.Status status = io.grpc.protobuf.StatusProto.fromThrowable(statusEx);
                 if (status != null && status.getCode() == com.google.rpc.Code.NOT_FOUND_VALUE) {
-                    throw new MerchantDetailsNotFoundException("Реквизиты для api-сделки получены не были");
+                    log.warn("Не найдены реквизиты для {}", requestDTO);
+                    throw new MerchantDetailsNotFoundException();
                 }
                 log.error("Системная gRPC ошибка от merchant-details: код={}", statusEx.getStatus().getCode());
                 throw new BaseException("gRPC service error");

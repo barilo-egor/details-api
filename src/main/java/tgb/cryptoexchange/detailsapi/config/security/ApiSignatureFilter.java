@@ -43,18 +43,20 @@ public class ApiSignatureFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain) throws ServletException, IOException {
-
+        final String INVALID_SIGNATURE = "Invalid signature";
+        final String SIGNATURE_NOT_MATCH = "The provided signature does not match.";
         String authHeader = request.getHeader("Authorization");
         String signatureHeader = request.getHeader("Signature");
         String timestampHeader = request.getHeader("X-Timestamp");
 
         if (authHeader == null || !authHeader.startsWith("Api-Key ")) {
-            sendJsonError(response, HttpStatus.UNAUTHORIZED, "Unauthorized", "Unauthorized");
+            sendJsonError(response, HttpStatus.UNAUTHORIZED, HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                    HttpStatus.UNAUTHORIZED.getReasonPhrase());
             return;
         }
         if (signatureHeader == null || timestampHeader == null) {
-            sendJsonError(response, HttpStatus.UNAUTHORIZED, "Invalid signature",
-                    "The provided signature does not match.");
+            sendJsonError(response, HttpStatus.UNAUTHORIZED, INVALID_SIGNATURE,
+                    SIGNATURE_NOT_MATCH);
             return;
         }
 
@@ -64,12 +66,14 @@ public class ApiSignatureFilter extends OncePerRequestFilter {
         try {
             client = clientAuthService.getClientByApiKey(apiKey);
             if (client == null) {
-                sendJsonError(response, HttpStatus.UNAUTHORIZED, "Unauthorized", "Unauthorized");
+                sendJsonError(response, HttpStatus.UNAUTHORIZED, HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                        HttpStatus.UNAUTHORIZED.getReasonPhrase());
                 return;
             }
         } catch (ClientNotFoundException | InvalidApiKeyException ex) {
             log.warn("Authentication failed due to client status: {}", ex.getMessage());
-            sendJsonError(response, HttpStatus.UNAUTHORIZED, "Unauthorized", "Unauthorized");
+            sendJsonError(response, HttpStatus.UNAUTHORIZED, HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                    HttpStatus.UNAUTHORIZED.getReasonPhrase());
             return;
         } catch (Exception ex) {
             log.error("Internal error during client authentication", ex);
@@ -87,13 +91,13 @@ public class ApiSignatureFilter extends OncePerRequestFilter {
             long timestamp = Long.parseLong(timestampHeader);
             long now = Instant.now().getEpochSecond();
             if (Math.abs(now - timestamp) > 300) {
-                sendJsonError(response, HttpStatus.UNAUTHORIZED, "Invalid signature",
-                        "The provided signature does not match.");
+                sendJsonError(response, HttpStatus.UNAUTHORIZED, INVALID_SIGNATURE,
+                        SIGNATURE_NOT_MATCH);
                 return;
             }
         } catch (NumberFormatException e) {
-            sendJsonError(response, HttpStatus.UNAUTHORIZED, "Invalid signature",
-                    "The provided signature does not match.");
+            sendJsonError(response, HttpStatus.UNAUTHORIZED, INVALID_SIGNATURE,
+                    SIGNATURE_NOT_MATCH);
             return;
         }
 
@@ -118,11 +122,12 @@ public class ApiSignatureFilter extends OncePerRequestFilter {
         }
 
         if (!expectedSignature.equalsIgnoreCase(signatureHeader)) {
-            sendJsonError(response, HttpStatus.UNAUTHORIZED, "Invalid signature",
-                    "The provided signature does not match.");
+            sendJsonError(response, HttpStatus.UNAUTHORIZED, INVALID_SIGNATURE,
+                    SIGNATURE_NOT_MATCH);
             return;
         }
 
+        cachedRequest.setAttribute("authenticatedClient", client);
         filterChain.doFilter(cachedRequest, response);
     }
 

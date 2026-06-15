@@ -14,9 +14,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import tgb.cryptoexchange.detailsapi.exceptions.BaseException;
 import tgb.cryptoexchange.detailsapi.exceptions.EnableUniqueAmountException;
+import tgb.cryptoexchange.detailsapi.exceptions.MerchantDetailsNotFoundException;
+import tgb.cryptoexchange.detailsapi.exceptions.OrderNotFoundException;
 
 import java.net.URI;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
@@ -26,6 +29,27 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final String PROPERTY_TIMESTAMP = "timestamp";
 
+    @ExceptionHandler(OrderNotFoundException.class)
+    public ProblemDetail handleOrderNotFound(OrderNotFoundException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+        problemDetail.setTitle("Order not found.");
+        problemDetail.setDetail(String.format("Order with id %s not found.", ex.getId()));
+        problemDetail.setType(URI.create("/errors/order-not-found"));
+        problemDetail.setProperty(PROPERTY_TIMESTAMP, Instant.now());
+        return problemDetail;
+    }
+
+    @ExceptionHandler(MerchantDetailsNotFoundException.class)
+    public ProblemDetail handleMerchantDetailsNotFound() {
+        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        problemDetail.setTitle("Details were not found.");
+        problemDetail.setDetail("Details were not found. Try again later.");
+        problemDetail.setType(URI.create("/errors/details-not-found"));
+        problemDetail.setProperty(PROPERTY_TIMESTAMP, Instant.now());
+
+        return problemDetail;
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidationErrors(MethodArgumentNotValidException ex) {
         String details = ex.getBindingResult().getFieldErrors().stream()
@@ -33,7 +57,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .collect(Collectors.joining(", "));
 
         ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
-        problemDetail.setTitle(details);
+        problemDetail.setTitle("Invalid request.");
+        problemDetail.setDetail(details);
         problemDetail.setType(URI.create("/errors/now-valid"));
         problemDetail.setProperty(PROPERTY_TIMESTAMP, Instant.now());
 
@@ -77,10 +102,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             com.google.rpc.Status status = StatusProto.fromThrowable(grpcEx);
             HttpStatus httpStatus = mapGrpcCodeToHttpStatus(grpcCode);
 
-            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(httpStatus, status.getMessage());
+            String message = Optional.ofNullable(status)
+                    .map(com.google.rpc.Status::getMessage)
+                    .filter(msg -> !msg.isBlank())
+                    .orElseGet(httpStatus::getReasonPhrase);
+
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(httpStatus, message);
             problemDetail.setProperty(PROPERTY_TIMESTAMP, Instant.now());
 
-            if (status.getDetailsCount() > 0) {
+            if (status != null && status.getDetailsCount() > 0) {
                 try {
                     BadRequest badRequest = status.getDetails(0).unpack(BadRequest.class);
                     problemDetail.setTitle("Validation failed");

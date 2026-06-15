@@ -3,43 +3,39 @@ package tgb.cryptoexchange.detailsapi.controller;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
-import tgb.cryptoexchange.detailsapi.dto.ApiDetailsRequestDTO;
-import tgb.cryptoexchange.detailsapi.dto.ApiDetailsResponseDTO;
-import tgb.cryptoexchange.detailsapi.dto.ApiOrdersCreateRequestDTO;
+import tgb.cryptoexchange.detailsapi.dto.ClientByApiKeyDTO;
 import tgb.cryptoexchange.detailsapi.dto.CreateOrderDTO;
-import tgb.cryptoexchange.detailsapi.mapper.DetailsMapper;
-import tgb.cryptoexchange.detailsapi.service.ApiMerchantDetailsGrpcService;
-
-import java.util.UUID;
+import tgb.cryptoexchange.detailsapi.dto.OrderResponseDTO;
+import tgb.cryptoexchange.detailsapi.service.OrderService;
 
 @Slf4j
 @RestController
 @RequestMapping("/orders")
 public class OrdersController {
 
-    private final ApiMerchantDetailsGrpcService detailsGrpcService;
+    private final OrderService orderService;
 
-    private final DetailsMapper detailsMapper;
-
-    public OrdersController(ApiMerchantDetailsGrpcService detailsGrpcService, DetailsMapper detailsMapper) {
-        this.detailsGrpcService = detailsGrpcService;
-        this.detailsMapper = detailsMapper;
+    public OrdersController(OrderService orderService) {
+        this.orderService = orderService;
     }
 
     @PostMapping
-    public void createOrder(@Valid @RequestBody CreateOrderDTO orderDTO,
-            @RequestHeader(value = "X-Test-Order", required = false) String isTestOrder) {
+    public OrderResponseDTO createOrder(@Valid @RequestBody CreateOrderDTO clientRequest,
+            @RequestHeader(value = "X-Test-Order", required = false) String isTestOrder,
+            @RequestHeader(value = "X-Order-Timeout") Integer clientOrderTimeout,
+            @RequestAttribute("authenticatedClient") ClientByApiKeyDTO client) {
         if (Boolean.parseBoolean(isTestOrder)) {
-            log.info("Получен тестовый запрос (X-Test-Order = true).");
-
-            return;
+            log.info("Получен тестовый запрос (X-Test-Order = true) для клиента {}.", client);
+            return orderService.testOrder(clientRequest, clientOrderTimeout);
         }
-        ApiDetailsRequestDTO apiDetailsRequestDTO = detailsMapper.orderToRequestDTO(orderDTO);
-        UUID orderId = apiDetailsRequestDTO.getInternalId();
-        ApiDetailsResponseDTO detailsResponseDTO = detailsGrpcService.getDetails(apiDetailsRequestDTO);
+        return orderService.createOrder(clientRequest, client, clientOrderTimeout);
+    }
 
-        ApiOrdersCreateRequestDTO
-
+    @GetMapping("/{id}")
+    public OrderResponseDTO getOrder(@PathVariable String id,
+            @RequestHeader(value = "X-Order-Timeout") Integer clientOrderTimeout,
+            @RequestAttribute("authenticatedClient") ClientByApiKeyDTO client) {
+        return orderService.findOrderById(id, clientOrderTimeout, client);
     }
 
 }

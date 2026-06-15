@@ -5,6 +5,8 @@ import lombok.Data;
 import lombok.ToString;
 import tgb.cryptoexchange.detailsapi.enums.ClientStatus;
 
+import java.time.Instant;
+
 /**
  * Данные клиента, идентифицированного по API-ключу.
  */
@@ -12,11 +14,21 @@ import tgb.cryptoexchange.detailsapi.enums.ClientStatus;
 @Builder
 public class ClientByApiKeyDTO {
 
+    private Long clientId;
+
     private String username;
+
+    private String apiKeyPreview;
 
     @ToString.Exclude
     private String secret;
 
+    private Instant registeredAt;
+
     private ClientStatus status;
+
+    private String callbackUrl;
+
+    private Integer orderTimeoutSeconds;
 
 }

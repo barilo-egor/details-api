@@ -2,13 +2,9 @@ package tgb.cryptoexchange.detailsapi.mapper;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import tgb.cryptoexchange.detailsapi.dto.ApiDetailsResponseDTO;
-import tgb.cryptoexchange.detailsapi.dto.ApiOrdersCreateRequestDTO;
-import tgb.cryptoexchange.detailsapi.dto.ApiOrdersCreateResponseDTO;
-import tgb.cryptoexchange.detailsapi.dto.CreateOrderDTO;
+import tgb.cryptoexchange.detailsapi.dto.*;
 import tgb.cryptoexchange.detailsapi.exceptions.EnableUniqueAmountException;
-import tgb.cryptoexchange.grpc.generated.CreateOrderGrpc;
-import tgb.cryptoexchange.grpc.generated.CreateOrderResponseGrpc;
+import tgb.cryptoexchange.grpc.generated.*;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -19,7 +15,7 @@ import java.util.UUID;
 public class OrdersMapper {
 
     public ApiOrdersCreateRequestDTO createRequestDTO(UUID orderId, CreateOrderDTO clientRequest,
-            ApiDetailsResponseDTO detailsResponseDTO) {
+            ApiDetailsResponseDTO detailsResponseDTO, ClientByApiKeyDTO client) {
         Integer amount;
         if (clientRequest.isEnableUniqueAmount()) {
             amount = Objects.isNull(detailsResponseDTO.getAmount()) ?
@@ -34,7 +30,7 @@ public class OrdersMapper {
 
         return ApiOrdersCreateRequestDTO.builder()
                 .id(orderId)
-                .clientId(Long.valueOf(clientRequest.getUserId()))
+                .clientId(client.getClientId())
                 .internalId(clientRequest.getInternalId())
                 .merchant(detailsResponseDTO.getMerchant())
                 .merchantOrderId(detailsResponseDTO.getOrderId())
@@ -60,8 +56,8 @@ public class OrdersMapper {
         return builder.build();
     }
 
-    public ApiOrdersCreateResponseDTO grpcResponseToDTO(CreateOrderResponseGrpc response) {
-        return ApiOrdersCreateResponseDTO.builder()
+    public ApiOrdersResponseDTO grpcResponseToDTO(CreateOrderResponseGrpc response) {
+        return ApiOrdersResponseDTO.builder()
                 .id(UUID.fromString(response.getId()))
                 .clientId(response.getClientId())
                 .internalId(response.getInternalId())
@@ -69,14 +65,54 @@ public class OrdersMapper {
                 .amount(response.getAmount())
                 .enableUniqueAmount(response.getEnableUniqueAmount())
                 .callbackUrl(response.getCallbackUrl())
-                .created_at(response.hasCreatedAt() ? Instant.ofEpochSecond(
+                .createdAt(response.hasCreatedAt() ? Instant.ofEpochSecond(
                         response.getCreatedAt().getSeconds(),
                         response.getCreatedAt().getNanos()
                 ) : null)
-                .expires_at(response.hasExpiresAt() ? Instant.ofEpochSecond(
-                        response.getExpiresAt().getSeconds(),
-                        response.getExpiresAt().getNanos()
-                ) : null)
+                .build();
+    }
+
+    /**
+     * @param id (Поиск по идентификатору системы)
+     */
+    public GetOrdersGrpc getOrdersByIdGrpc(String id, Long clientId) {
+        GetOrdersGrpc.Builder builder = GetOrdersGrpc.newBuilder();
+        builder.setPagination(PaginationParams.newBuilder()
+                .setPage(0)
+                .setSize(1)
+                .build());
+
+        builder.setId(id);
+        builder.addClientIds(clientId);
+        return builder.build();
+    }
+
+    /**
+     * @param id (Поиск по идентификатору сторонней системы)
+     */
+    public GetOrdersGrpc getOrdersByExternalIdGrpc(String id, Long clientId) {
+        GetOrdersGrpc.Builder builder = GetOrdersGrpc.newBuilder();
+        builder.setPagination(PaginationParams.newBuilder()
+                .setPage(0)
+                .setSize(1)
+                .build());
+        builder.setInternalId(id);
+        builder.addClientIds(clientId);
+
+        return builder.build();
+    }
+
+    public ApiOrdersResponseDTO getOrder(OrderResponse orderResponse) {
+        return ApiOrdersResponseDTO.builder()
+                .id(UUID.fromString(orderResponse.getId()))
+                .clientId(orderResponse.getClientId())
+                .internalId(orderResponse.getInternalId())
+                .status(orderResponse.getStatus())
+                .amount(orderResponse.getAmount())
+                .enableUniqueAmount(orderResponse.getEnableUniqueAmount())
+                .callbackUrl(orderResponse.getCallbackUrl())
+                .createdAt(Instant.ofEpochSecond(orderResponse.getCreatedAt().getSeconds(),
+                        orderResponse.getCreatedAt().getNanos()))
                 .build();
     }
 

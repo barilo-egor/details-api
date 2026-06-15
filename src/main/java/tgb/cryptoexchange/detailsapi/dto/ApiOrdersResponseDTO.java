@@ -8,7 +8,7 @@ import java.util.UUID;
 
 @Data
 @Builder
-public class ApiOrdersCreateResponseDTO {
+public class ApiOrdersResponseDTO {
 
     private UUID id;
 
@@ -25,7 +25,5 @@ public class ApiOrdersCreateResponseDTO {
     private String callbackUrl;
 
     private Instant createdAt;
-
-    private Instant expiresAt;
 
 }

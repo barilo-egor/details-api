@@ -4,11 +4,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import tgb.cryptoexchange.detailsapi.dto.ApiOrdersCreateRequestDTO;
-import tgb.cryptoexchange.detailsapi.dto.ApiOrdersCreateResponseDTO;
+import tgb.cryptoexchange.detailsapi.dto.ApiOrdersResponseDTO;
+import tgb.cryptoexchange.detailsapi.exceptions.OrderNotFoundException;
 import tgb.cryptoexchange.detailsapi.mapper.OrdersMapper;
-import tgb.cryptoexchange.grpc.generated.CreateOrderGrpc;
-import tgb.cryptoexchange.grpc.generated.CreateOrderResponseGrpc;
-import tgb.cryptoexchange.grpc.generated.OrdersServiceGrpc;
+import tgb.cryptoexchange.grpc.generated.*;
+
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -24,11 +25,27 @@ public class ApiOrdersGrpcService extends GrpcService {
         this.ordersMapper = ordersMapper;
     }
 
-    public ApiOrdersCreateResponseDTO createOrder(ApiOrdersCreateRequestDTO createRequestDTO) {
+    public ApiOrdersResponseDTO createOrder(ApiOrdersCreateRequestDTO createRequestDTO) {
         CreateOrderGrpc request = ordersMapper.createOrderGrpc(createRequestDTO);
         ListenableFuture<CreateOrderResponseGrpc> grpcFuture = ordersFutureStub.createOrder(request);
         CreateOrderResponseGrpc response = toCompletableFuture(grpcFuture).join();
         return ordersMapper.grpcResponseToDTO(response);
+    }
+
+    public ApiOrdersResponseDTO getOrders(String id, Long clientId) {
+        return findByRequest(ordersMapper.getOrdersByIdGrpc(id, clientId))
+                .or(() -> findByRequest(ordersMapper.getOrdersByExternalIdGrpc(id, clientId)))
+                .orElseThrow(() -> new OrderNotFoundException(id));
+    }
+
+    private Optional<ApiOrdersResponseDTO> findByRequest(GetOrdersGrpc request) {
+        ListenableFuture<GetOrdersResponseGrpc> grpcFuture = ordersFutureStub.getOrders(request);
+        GetOrdersResponseGrpc response = toCompletableFuture(grpcFuture).join();
+        long total = response.getTotalElements();
+        if (total > 0) {
+            return response.getOrdersList().stream().map(ordersMapper::getOrder).findFirst();
+        }
+        return Optional.empty();
     }
 
 }
