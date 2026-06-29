@@ -2,6 +2,7 @@ package tgb.cryptoexchange.detailsapi.service;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import tgb.cryptoexchange.detailsapi.dto.ApiOrdersCreateRequestDTO;
 import tgb.cryptoexchange.detailsapi.dto.ApiOrdersResponseDTO;
@@ -9,6 +10,7 @@ import tgb.cryptoexchange.detailsapi.exceptions.OrderNotFoundException;
 import tgb.cryptoexchange.detailsapi.mapper.OrdersMapper;
 import tgb.cryptoexchange.grpc.generated.*;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -36,6 +38,13 @@ public class ApiOrdersGrpcService extends GrpcService {
         return findByRequest(ordersMapper.getOrdersByIdGrpc(id, clientId))
                 .or(() -> findByRequest(ordersMapper.getOrdersByExternalIdGrpc(id, clientId)))
                 .orElseThrow(() -> new OrderNotFoundException(id));
+    }
+
+    public List<ApiOrdersResponseDTO> findOrders(Long clientId, Pageable pageable) {
+        GetOrdersGrpc request = ordersMapper.getOrdersGrpc(clientId, pageable);
+        ListenableFuture<GetOrdersResponseGrpc> grpcFuture = ordersFutureStub.getOrders(request);
+        GetOrdersResponseGrpc response = toCompletableFuture(grpcFuture).join();
+        return response.getOrdersList().stream().map(ordersMapper::getOrder).toList();
     }
 
     private Optional<ApiOrdersResponseDTO> findByRequest(GetOrdersGrpc request) {

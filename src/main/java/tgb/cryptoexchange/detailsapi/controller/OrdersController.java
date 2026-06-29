@@ -2,11 +2,16 @@ package tgb.cryptoexchange.detailsapi.controller;
 
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 import tgb.cryptoexchange.detailsapi.dto.ClientByApiKeyDTO;
 import tgb.cryptoexchange.detailsapi.dto.CreateOrderDTO;
 import tgb.cryptoexchange.detailsapi.dto.OrderResponseDTO;
 import tgb.cryptoexchange.detailsapi.service.OrderService;
+
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -36,6 +41,13 @@ public class OrdersController {
             @RequestHeader(value = "X-Order-Timeout") Integer clientOrderTimeout,
             @RequestAttribute("authenticatedClient") ClientByApiKeyDTO client) {
         return orderService.findOrderById(id, clientOrderTimeout, client);
+    }
+
+    @GetMapping
+    public List<OrderResponseDTO> findOrders(@RequestHeader(value = "X-Order-Timeout") Integer clientOrderTimeout,
+            @RequestAttribute("authenticatedClient") ClientByApiKeyDTO client,
+            @PageableDefault(size = 25, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        return orderService.findOrders(clientOrderTimeout, client, pageable);
     }
 
 }

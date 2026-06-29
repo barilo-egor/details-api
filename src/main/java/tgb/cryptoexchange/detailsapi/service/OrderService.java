@@ -1,12 +1,14 @@
 package tgb.cryptoexchange.detailsapi.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import tgb.cryptoexchange.detailsapi.dto.*;
 import tgb.cryptoexchange.detailsapi.mapper.DetailsMapper;
 import tgb.cryptoexchange.detailsapi.mapper.OrdersMapper;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -86,6 +88,23 @@ public class OrderService {
                 .createdAt(createdAt)
                 .expiresAt(expiresAt)
                 .build();
+    }
+
+    public List<OrderResponseDTO> findOrders(Integer clientOrderTimeout, ClientByApiKeyDTO client, Pageable pageable) {
+        List<ApiOrdersResponseDTO> orderDTO = apiOrdersGrpcService.findOrders(client.getClientId(), pageable);
+        return orderDTO.stream().map(dto -> {
+            Instant createdAt = dto.getCreatedAt();
+            Instant expiresAt = createdAt.plusSeconds(clientOrderTimeout);
+            return OrderResponseDTO.builder()
+                    .id(dto.getId())
+                    .internalId(dto.getInternalId())
+                    //                у ордера их нет, не описано до конца
+                    //                .details(orderDTO.get)
+                    .status(dto.getStatus())
+                    .createdAt(createdAt)
+                    .expiresAt(expiresAt)
+                    .build();
+        }).toList();
     }
 
 }

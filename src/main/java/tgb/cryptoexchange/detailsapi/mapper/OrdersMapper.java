@@ -1,12 +1,14 @@
 package tgb.cryptoexchange.detailsapi.mapper;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import tgb.cryptoexchange.detailsapi.dto.*;
 import tgb.cryptoexchange.detailsapi.exceptions.EnableUniqueAmountException;
 import tgb.cryptoexchange.grpc.generated.*;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -83,6 +85,23 @@ public class OrdersMapper {
                 .build());
 
         builder.setId(id);
+        builder.addClientIds(clientId);
+        return builder.build();
+    }
+
+    /**
+     * Поиск всех ордеров клиента
+     */
+    public GetOrdersGrpc getOrdersGrpc(Long clientId, Pageable pageable) {
+        GetOrdersGrpc.Builder builder = GetOrdersGrpc.newBuilder();
+        List<String> grpcSorters = pageable.getSort().stream()
+                .map(order -> order.getProperty() + "," + order.getDirection().name().toLowerCase())
+                .toList();
+        builder.setPagination(PaginationParams.newBuilder()
+                .setPage(pageable.getPageNumber())
+                .setSize(pageable.getPageSize())
+                .addAllSorters(grpcSorters)
+                .build());
         builder.addClientIds(clientId);
         return builder.build();
     }
