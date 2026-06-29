@@ -31,6 +31,12 @@ public class ClientAuthService {
         this.apiClientsGrpcService = apiClientsGrpcService;
     }
 
+    /**
+     * Возвращает данные клиента по API-ключу, используя кэш Redis и gRPC.
+     *
+     * @param apiKey исходный API-ключ клиента.
+     * @return {@link ClientByApiKeyDTO} с данными клиента или {@code null}, если ключ пустой или не найден.
+     */
     public ClientByApiKeyDTO getClientByApiKey(String apiKey) {
         if (apiKey == null || apiKey.isBlank()) {
             return null;

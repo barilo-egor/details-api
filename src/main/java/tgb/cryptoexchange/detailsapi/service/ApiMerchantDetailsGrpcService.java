@@ -27,6 +27,14 @@ public class ApiMerchantDetailsGrpcService extends GrpcService {
         this.detailsMapper = detailsMapper;
     }
 
+    /**
+     * Получает реквизиты мерчанта по деталям запроса через gRPC.
+     *
+     * @param requestDTO параметры запроса реквизитов.
+     * @return {@link ApiDetailsResponseDTO} с найденными реквизитами.
+     * @throws MerchantDetailsNotFoundException если реквизиты не найдены (gRPC NOT_FOUND).
+     * @throws BaseException                    при системных ошибках gRPC или сбоях сети.
+     */
     public ApiDetailsResponseDTO getDetails(ApiDetailsRequestDTO requestDTO) {
         GetDetailsGrpc request = detailsMapper.detailsRequestDTOToGrpc(requestDTO);
         ListenableFuture<GetDetailsResponseGrpc> grpcFuture = detailsFutureStub.getDetails(request);

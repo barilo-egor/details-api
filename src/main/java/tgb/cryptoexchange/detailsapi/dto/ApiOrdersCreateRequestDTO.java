@@ -11,8 +11,14 @@ public class ApiOrdersCreateRequestDTO {
 
     private UUID id;
 
+    /**
+     * Идентификатор клиента, ордер для которого был создан.
+     */
     private Long clientId;
 
+    /**
+     * Идентификатор ордера в сторонней системе, получен в запросе.
+     */
     private String internalId;
 
     private String merchant;

@@ -24,6 +24,15 @@ public class ApiClientsGrpcService extends GrpcService {
         this.clientsFutureStub = clientsFutureStub;
     }
 
+    /**
+     * Получает данные клиента по хэшу API-ключа через gRPC.
+     *
+     * @param keyHash хэшированная строка API-ключа.
+     * @return {@link ClientByApiKeyDTO} с секретом и статусом клиента.
+     * @throws ClientNotFoundException если ключ не найден в системе (gRPC NOT_FOUND).
+     * @throws InvalidApiKeyException  если неверный формат ключа (gRPC INVALID_ARGUMENT).
+     * @throws BaseException           при сетевых сбоях и прочих системных ошибках gRPC.
+     */
     public ClientByApiKeyDTO getClientByApiKey(String keyHash) {
         GetClientByApiKeyGrpc request = GetClientByApiKeyGrpc.newBuilder()
                 .setApiKey(keyHash)

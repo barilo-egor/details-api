@@ -31,6 +31,17 @@ public class OrderService {
         this.apiOrdersGrpcService = apiOrdersGrpcService;
     }
 
+    /**
+     * Выполняет сквозной процесс создания заказа на основе gRPC-сервисов.
+     * <p>
+     * Метод последовательно запрашивает платежные реквизиты в {@code merchant-details},
+     * регистрирует новый заказ в {@code api-orders} и рассчитывает срок его жизни.
+     *
+     * @param clientRequest      параметры заказа от клиента.
+     * @param client             данные авторизованного клиента.
+     * @param clientOrderTimeout таймаут действия заказа в секундах.
+     * @return {@link OrderResponseDTO} с полными деталями и статусом созданного заказа.
+     */
     public OrderResponseDTO createOrder(CreateOrderDTO clientRequest, ClientByApiKeyDTO client,
             Integer clientOrderTimeout) {
         ApiDetailsRequestDTO apiDetailsRequestDTO = detailsMapper.orderToRequestDTO(clientRequest);
@@ -58,6 +69,16 @@ public class OrderService {
         return responseDTO;
     }
 
+    /**
+     * Формирует тестовый заказ с захардкоженными платежными реквизитами.
+     * <p>
+     * Используется в режиме отладки при передаче флага тестового заказа,
+     * полностью изолируя выполнение от внешних gRPC-микросервисов.
+     *
+     * @param clientRequest      параметры запроса от клиента.
+     * @param clientOrderTimeout таймаут действия заказа в секундах для расчета экспирации.
+     * @return {@link OrderResponseDTO} со статусом NEW и фиксированными реквизитами карты.
+     */
     public OrderResponseDTO testOrder(CreateOrderDTO clientRequest, Integer clientOrderTimeout) {
         Instant createdAt = Instant.now();
         Instant expiresAt = createdAt.plusSeconds(clientOrderTimeout);
@@ -75,6 +96,14 @@ public class OrderService {
                 .build();
     }
 
+    /**
+     * Находит заказ по его идентификатору и рассчитывает срок его жизни.
+     *
+     * @param id                 системный или внешний идентификатор заказа.
+     * @param clientOrderTimeout таймаут действия заказа в секундах для расчета экспирации.
+     * @param client             данные авторизованного клиента.
+     * @return {@link OrderResponseDTO} с деталями и актуальным статусом найденного заказа.
+     */
     public OrderResponseDTO findOrder(String id, Integer clientOrderTimeout, ClientByApiKeyDTO client) {
         ApiOrdersResponseDTO orderDTO = apiOrdersGrpcService.getOrders(id, client.getClientId());
         Instant createdAt = orderDTO.getCreatedAt();
@@ -90,6 +119,14 @@ public class OrderService {
                 .build();
     }
 
+    /**
+     * Получает список заказов клиента с учетом пагинации и рассчитывает их экспирацию.
+     *
+     * @param clientOrderTimeout таймаут действия заказа в секундах для расчета экспирации.
+     * @param client             данные авторизованного клиента для фильтрации.
+     * @param pageable           параметры пагинации и сортировки.
+     * @return список {@link OrderResponseDTO} с актуальными статусами и временем жизни.
+     */
     public List<OrderResponseDTO> findOrders(Integer clientOrderTimeout, ClientByApiKeyDTO client, Pageable pageable) {
         List<ApiOrdersResponseDTO> orderDTO = apiOrdersGrpcService.findOrders(client.getClientId(), pageable);
         return orderDTO.stream().map(dto -> {
@@ -107,6 +144,14 @@ public class OrderService {
         }).toList();
     }
 
+    /**
+     * Отменяет заказ через gRPC и возвращает его обновленные детали.
+     *
+     * @param id                 идентификатор отменяемого заказа.
+     * @param clientOrderTimeout таймаут действия заказа в секундах для расчета экспирации.
+     * @param client             данные авторизованного клиента.
+     * @return {@link OrderResponseDTO} с актуальным статусом CANCELED.
+     */
     public OrderResponseDTO cancelOrder(String id, Integer clientOrderTimeout, ClientByApiKeyDTO client) {
         apiOrdersGrpcService.cancelOrder(id, client.getClientId());
         return findOrder(id, clientOrderTimeout, client);

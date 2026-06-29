@@ -28,6 +28,12 @@ public class ApiOrdersGrpcService extends GrpcService {
         this.ordersMapper = ordersMapper;
     }
 
+    /**
+     * Отправляет запрос на создание нового заказа через gRPC.
+     *
+     * @param createRequestDTO параметры создаваемого заказа.
+     * @return {@link ApiOrdersResponseDTO} с метаданными и статусом созданного заказа.
+     */
     public ApiOrdersResponseDTO createOrder(ApiOrdersCreateRequestDTO createRequestDTO) {
         CreateOrderGrpc request = ordersMapper.createOrderGrpc(createRequestDTO);
         ListenableFuture<CreateOrderResponseGrpc> grpcFuture = ordersFutureStub.createOrder(request);
@@ -35,12 +41,27 @@ public class ApiOrdersGrpcService extends GrpcService {
         return ordersMapper.grpcResponseToDTO(response);
     }
 
+    /**
+     * Ищет заказ через gRPC последовательно по системному, затем по внешнему ID.
+     *
+     * @param id       системный или внешний идентификатор заказа.
+     * @param clientId идентификатор клиента.
+     * @return {@link ApiOrdersResponseDTO} с деталями найденного заказа.
+     * @throws OrderNotFoundException если заказ не найден ни по одному из идентификаторов.
+     */
     public ApiOrdersResponseDTO getOrders(String id, Long clientId) {
         return findByRequest(ordersMapper.getOrdersByIdGrpc(id, clientId))
                 .or(() -> findByRequest(ordersMapper.getOrdersByExternalIdGrpc(id, clientId)))
                 .orElseThrow(() -> new OrderNotFoundException(id));
     }
 
+    /**
+     * Запрашивает список заказов клиента с поддержкой пагинации и сортировки через gRPC.
+     *
+     * @param clientId идентификатор клиента.
+     * @param pageable параметры пагинации и сортировки.
+     * @return список {@link ApiOrdersResponseDTO} с найденными заказами.
+     */
     public List<ApiOrdersResponseDTO> findOrders(Long clientId, Pageable pageable) {
         GetOrdersGrpc request = ordersMapper.getOrdersGrpc(clientId, pageable);
         ListenableFuture<GetOrdersResponseGrpc> grpcFuture = ordersFutureStub.getOrders(request);
@@ -58,6 +79,12 @@ public class ApiOrdersGrpcService extends GrpcService {
         return Optional.empty();
     }
 
+    /**
+     * Отправляет gRPC-запрос на перевод статуса заказа в состояние CANCELED.
+     *
+     * @param id       идентификатор отменяемого заказа.
+     * @param clientId идентификатор клиента, которому принадлежит заказ.
+     */
     public void cancelOrder(String id, Long clientId) {
         UpdateOrderStatusGrpc request = UpdateOrderStatusGrpc.newBuilder()
                 .setId(id)
