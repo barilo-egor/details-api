@@ -29,7 +29,6 @@ repositories {
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.boot:spring-boot-starter-security'
@@ -43,8 +42,6 @@ dependencies {
     implementation 'build.buf:protovalidate:1.2.2'
     protobuf files('build.buf:protovalidate:1.2.2')
 
-    implementation 'commons-codec:commons-codec:1.18.0'
-
     implementation 'tgb.cryptoexchange:common-api:1.1.0'
     implementation 'tgb.cryptoexchange:commons:1.0'
 
@@ -56,14 +53,7 @@ dependencies {
 
 
     testImplementation "org.springframework.boot:spring-boot-starter-test"
-    testImplementation 'org.springframework.grpc:spring-grpc-test'
-    testImplementation 'io.grpc:grpc-testing'
-    testImplementation 'org.wiremock.integrations:wiremock-spring-boot:4.2.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
-    testImplementation "org.testcontainers:junit-jupiter:1.21.4"
-    testImplementation "org.assertj:assertj-core:3.27.7"
-    testImplementation 'io.projectreactor:reactor-test'
 }
 
 protobuf {
@@ -103,4 +93,12 @@ tasks.withType(JavaCompile).configureEach {
 
 test {
     systemProperty "file.encoding", "UTF-8"
+}
+
+tasks.jar {
+    archiveFileName = "details-api.jar"
+}
+
+bootJar {
+    archiveFileName = 'details-api.jar'
 }
