@@ -28,7 +28,7 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/**").authenticated()
+                        .requestMatchers("/**").permitAll()
                 )
                 .addFilterBefore(new ApiSignatureFilter(clientAuthService, objectMapper),
                         UsernamePasswordAuthenticationFilter.class);

@@ -1,16 +1,22 @@
 package tgb.cryptoexchange.detailsapi.dto;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import tgb.cryptoexchange.detailsapi.enums.RequestMethod;
 
 import java.util.Set;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonPropertyOrder(alphabetic = true)
 public class CreateOrderDTO {
 
     @NotBlank(message = "Обязательно для заполнения")

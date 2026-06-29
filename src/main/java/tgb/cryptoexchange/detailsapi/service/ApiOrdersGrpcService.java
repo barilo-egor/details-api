@@ -1,6 +1,7 @@
 package tgb.cryptoexchange.detailsapi.service;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.protobuf.Empty;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -55,6 +56,17 @@ public class ApiOrdersGrpcService extends GrpcService {
             return response.getOrdersList().stream().map(ordersMapper::getOrder).findFirst();
         }
         return Optional.empty();
+    }
+
+    public void cancelOrder(String id, Long clientId) {
+        UpdateOrderStatusGrpc request = UpdateOrderStatusGrpc.newBuilder()
+                .setId(id)
+                .setClientId(clientId)
+                .setStatus("CANCELED")
+                .build();
+
+        ListenableFuture<Empty> grpcFuture = ordersFutureStub.updateOrderStatus(request);
+        toCompletableFuture(grpcFuture).join();
     }
 
 }

@@ -75,7 +75,7 @@ public class OrderService {
                 .build();
     }
 
-    public OrderResponseDTO findOrderById(String id, Integer clientOrderTimeout, ClientByApiKeyDTO client) {
+    public OrderResponseDTO findOrder(String id, Integer clientOrderTimeout, ClientByApiKeyDTO client) {
         ApiOrdersResponseDTO orderDTO = apiOrdersGrpcService.getOrders(id, client.getClientId());
         Instant createdAt = orderDTO.getCreatedAt();
         Instant expiresAt = createdAt.plusSeconds(clientOrderTimeout);
@@ -105,6 +105,11 @@ public class OrderService {
                     .expiresAt(expiresAt)
                     .build();
         }).toList();
+    }
+
+    public OrderResponseDTO cancelOrder(String id, Integer clientOrderTimeout, ClientByApiKeyDTO client) {
+        apiOrdersGrpcService.cancelOrder(id, client.getClientId());
+        return findOrder(id, clientOrderTimeout, client);
     }
 
 }

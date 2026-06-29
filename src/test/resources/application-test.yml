@@ -1,20 +1,21 @@
 spring:
+  application:
+    name: "details-api-test"
   threads:
     virtual:
       enabled: true
   mvc:
-    problemdetails:
+    problem-details:
       enabled: true
   grpc:
     client:
       channels:
         api-clients:
-          address: ""
+          address: "localhost:${spring.grpc.server.port}"
         api-merchant-details:
-          address: ""
+          address: "localhost:${spring.grpc.server.port}"
         api-orders:
-          address: ""
-  port:
+          address: "localhost:${spring.grpc.server.port}"
 cache:
   ttl:
     client-get-seconds: 3600

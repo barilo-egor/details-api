@@ -3,7 +3,6 @@ package tgb.cryptoexchange.detailsapi.controller;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 import tgb.cryptoexchange.detailsapi.dto.ClientByApiKeyDTO;
@@ -40,14 +39,21 @@ public class OrdersController {
     public OrderResponseDTO getOrder(@PathVariable String id,
             @RequestHeader(value = "X-Order-Timeout") Integer clientOrderTimeout,
             @RequestAttribute("authenticatedClient") ClientByApiKeyDTO client) {
-        return orderService.findOrderById(id, clientOrderTimeout, client);
+        return orderService.findOrder(id, clientOrderTimeout, client);
     }
 
     @GetMapping
     public List<OrderResponseDTO> findOrders(@RequestHeader(value = "X-Order-Timeout") Integer clientOrderTimeout,
             @RequestAttribute("authenticatedClient") ClientByApiKeyDTO client,
-            @PageableDefault(size = 25, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 25) Pageable pageable) {
         return orderService.findOrders(clientOrderTimeout, client, pageable);
+    }
+
+    @PatchMapping("/{id}")
+    public OrderResponseDTO cancelOrder(@PathVariable String id,
+            @RequestHeader(value = "X-Order-Timeout") Integer clientOrderTimeout,
+            @RequestAttribute("authenticatedClient") ClientByApiKeyDTO client) {
+        return orderService.cancelOrder(id, clientOrderTimeout, client);
     }
 
 }

@@ -6,12 +6,13 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.protobuf.StatusProto;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import tgb.cryptoexchange.detailsapi.exceptions.BaseException;
 import tgb.cryptoexchange.detailsapi.exceptions.EnableUniqueAmountException;
 import tgb.cryptoexchange.detailsapi.exceptions.MerchantDetailsNotFoundException;
@@ -25,7 +26,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 @Slf4j
-public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class GlobalExceptionHandler {
 
     private static final String PROPERTY_TIMESTAMP = "timestamp";
 
@@ -60,17 +62,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         problemDetail.setTitle("Invalid request.");
         problemDetail.setDetail(details);
         problemDetail.setType(URI.create("/errors/now-valid"));
-        problemDetail.setProperty(PROPERTY_TIMESTAMP, Instant.now());
-
-        return problemDetail;
-    }
-
-    @ExceptionHandler({ BaseException.class, Exception.class })
-    public ProblemDetail handleUnexpectedErrors(Exception ex) {
-        log.error("Произошла непредвиденная системная ошибка:", ex);
-        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
-        problemDetail.setTitle("Service Unavailable");
-        problemDetail.setType(URI.create("/errors/internal-server-error"));
         problemDetail.setProperty(PROPERTY_TIMESTAMP, Instant.now());
 
         return problemDetail;
@@ -135,6 +126,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
 
         return buildServiceUnavailableDetail(ex);
+    }
+
+    @ExceptionHandler({ BaseException.class, Exception.class })
+    public ProblemDetail handleUnexpectedErrors(Exception ex) {
+        log.error("Произошла непредвиденная системная ошибка:", ex);
+        ProblemDetail problemDetail = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
+        problemDetail.setTitle("Service Unavailable");
+        problemDetail.setType(URI.create("/errors/internal-server-error"));
+        problemDetail.setProperty(PROPERTY_TIMESTAMP, Instant.now());
+
+        return problemDetail;
     }
 
     /**

@@ -12,7 +12,7 @@ import "buf/validate/validate.proto";
 service OrdersService {
 
   rpc CreateOrder (CreateOrderGrpc) returns (CreateOrderResponseGrpc);
-
+  rpc UpdateOrderStatus (UpdateOrderStatusGrpc) returns(google.protobuf.Empty);
   rpc GetOrders (GetOrdersGrpc) returns (GetOrdersResponseGrpc);
 }
 
@@ -71,5 +71,11 @@ message OrderResponse {
 message GetOrdersResponseGrpc {
   repeated OrderResponse orders = 1;
   int64 total_elements = 2;
+}
+
+message UpdateOrderStatusGrpc {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string status = 2 [(buf.validate.field).string.pattern = "^[A-Z_]+$"];
+  optional int64 client_id = 3 [(buf.validate.field).int64.gt = 0];
 }
 
