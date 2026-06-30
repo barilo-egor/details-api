@@ -14,6 +14,11 @@ spring:
           address: ""
         api-orders:
           address: ""
+  data:
+    redis:
+      host:
+      port:
+      password:
   port:
 cache:
   ttl:
