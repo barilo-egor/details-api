@@ -34,6 +34,7 @@ class SignatureFilterIT extends BaseIntegrationTest {
 
         when(redisTemplate.opsForValue())
                 .thenReturn(valueOperationsMock);
+        when(valueOperationsMock.get(anyString())).thenReturn(mockClient);
     }
 
     @Test
