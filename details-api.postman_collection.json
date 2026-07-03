@@ -1,0 +1,169 @@
+{
+  "info": {
+    "_postman_id": "397787df-fa57-4486-9328-95f554b6ca95",
+    "name": "details-api",
+    "description": "## 🔒 Авторизация и защита запросов (HMAC-SHA256)\n\nВсе запросы к микросервису должны быть подписаны клиентом. Если подпись неверна или отсутствует, сервер вернет ошибку `401 Unauthorized`.\n\nКаждому клиенту выдается уникальный **Secret Key**, который нельзя передавать третьим лицам.\n\n### 📋 Что нужно передать в заголовках (Headers)\n\nПри каждом запросе клиент обязан передать три обязательных заголовка:\n\n1. `Signature` — сгенерированный хэш (в формате Hex).\n    \n2. `X-Timestamp` — Unix-время в секундах (например, `1719920000`), которое использовалось при создании подписи.\n    \n    - _Важно:_ Время на вашем сервере не должно отставать или спешить более чем на **5 минут** относительно времени запроса.\n        \n3. `Authorization` — ключ, выданный при регистрации, с префиксом `Api-Key`\n    \n\n### 🛠️ Алгоритм формирования подписи\n\nЧтобы сгенерировать значение для заголовка `Signature`, выполните следующие шаги:\n\n#### Шаг 1. Сборка строки для хэширования\n\nСоедините параметры запроса через вертикальную черту `|` в строго определенном порядке:  \n`{http_метод}|{request_path}|{timestamp}|{content}`\n\n**Правила для компонентов:**\n\n- `{http_метод}` — строго в верхнем регистре (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`).\n    \n- `{request_path}` — путь эндпоинта без домена (например, `/api/v1/users`).\n    \n- `{timestamp}` — текущее время в секундах (должно совпадать с заголовком `X-Timestamp`).\n    \n- `{content}` — для `GET` запросов это **пустая строка**. Для `POST`, `PUT`, `PATCH` — это **строка тела запроса** в том виде, в каком она отправляется в сеть (без лишних пробелов и переносов строк между элементами, если они затримированы).\n    \n\n#### Шаг 2. Хэширование\n\nПередайте получившуюся строку и ваш секретный ключ (`Secret Key`) в функцию **HMAC-SHA256**. Результат переведите в Hex-строку.\n\n---\n\n### 📝 Примеры сборки строки\n\n#### Пример 1: GET-запрос (без тела)\n\n- **Метод:** `GET`\n    \n- **Путь:** `/api/v1/orders/42`\n    \n- **Время:** `1719920000`\n    \n- **Строка для хэширования:**  \n    `GET|/api/v1/clients/42|1719920000|` _(обратите внимание на вертикальную черту на конце — после неё идет пустая строка)_\n    \n\n#### Пример 2: POST-запрос (с JSON-телом)\n\n- **Метод:** `POST`\n    \n- **Путь:** `/api/v1/orders`\n    \n- **Время:** `1719920050`\n    \n- **Тело:** `{\"item_id\":123,\"quantity\":1}`\n    \n- **Строка для хэширования:**  \n    `POST|/api/v1/orders|1719920050|{\"item_id\":123,\"quantity\":1}`\n    \n\n### ❌ Возможные ошибки авторизации (Error Responses)\n\nЕсли запрос не прошел проверку безопасности, микросервис возвращает стандартный объект ошибки (формат RFC 7807) с кодами `401` или `403`.\n\n#### 1\\. Отсутствует заголовок Authorization или клиент не найден\n\nВозвращается, если не передан токен/заголовок авторизации, либо микросервис `api-clients` не смог найти такого клиента в базе данных.\n\n- **HTTP Status:** `401 Unauthorized`\n    \n- **JSON Body:**\n    \n    ``` json\n        {\n        \"title\": \"Unauthorized\",\n        \"status\": 401,\n        \"detail\": \"Unauthorized\"\n        }\n    \n     ```\n    \n\n#### 2\\. Подпись отсутствует или невалидна\n\nВозвращается, если заголовок `Signature` пустой, отсутствует, или сгенерированный сервером хэш не совпал с тем, что прислал клиент.\n\n- **HTTP Status:** `401 Unauthorized`\n    \n- **JSON Body:**\n    \n    ``` json\n        {\n        \"title\": \"Invalid signature\",\n        \"status\": 401,\n        \"detail\": \"The provided signature does not match.\"\n        }\n    \n     ```\n    \n\n#### 3\\. Клиент заблокирован\n\nВозвращается, если клиент успешно прошел проверку подписи, но его текущий статус в системе `api-clients` равен `BLOCKED`.\n\n- **HTTP Status:** `403 Forbidden`\n    \n- **JSON Body:**\n    \n    ``` json\n        {\n        \"title\": \"Forbidden\",\n        \"status\": 403,\n        \"detail\": \"User blocked.\"\n        }\n    \n     ```",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "51311572",
+    "_collection_link": "https://go.postman.co/collection/51311572-397787df-fa57-4486-9328-95f554b6ca95?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Метод для создания ордера",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "orders"
+          ]
+        },
+        "description": "# Создание ордера\n\nМетод создает ордер в системе, если реквизиты по запросу были успешно найдены.\n\n---\n\n### ⚙️ Специфические заголовки (Request Headers)\n\nПомимо глобальных заголовков авторизации (`Authorization`, `Signature`, `X-Timestamp`), данный метод поддерживает:\n\n| Заголовок | Тип | Обязательность | Описание |\n| --- | --- | --- | --- |\n| `X-Test-Order` | string | **Нет** | Передайте значение `true`, если требуется создать тестовый ордер и поиск реальных реквизитов не требуется. |\n\n---\n\n### 📌 Особенности валидации полей:\n\n- `internalId` (**string**, обязательное) — должно быть **уникальным** для каждого нового ордера. Повторный запрос с тем же ID вызовет ошибку валидации.\n    \n- `amount` (**integer**, обязательное) — сумма ордера.\n    \n- `methods` (**array**, необязательное) — список доступных методов оплаты.\n    \n- `enableUniqueAmount` (**boolean**, необязательное) — дефолтное значение `false`.\n    \n- `callbackUrl` (**string**, необязательное) — URL, на который система отправит уведомление после смены статуса ордера.\n    \n- `userId` (**string**, необязательное) — идентификатор пользователя внутри вашей системы.\n    \n\n### 💡 Пример тела запроса (Request Payload)\n\n``` json\n{\n  \"internalId\": \"ord-req-2026-001\",\n  \"amount\": 5000,\n  \"methods\": [\"card\", \"sbp\"],\n  \"enableUniqueAmount\": false,\n  \"callbackUrl\": \"https://your-shop.com\",\n  \"userId\": \"usr_9988\"\n}\n\n ```\n\n---\n\n### 📥 Успешный ответ (Response 200 OK)\n\nЕсли реквизиты были успешно найдены, сервер возвращает объект созданного ордера:\n\n| Поле | Тип | Описание |\n| --- | --- | --- |\n| `id` | string | Уникальный UUID ордера. |\n| `internalId` | string | Идентификатор ордера в вашей системе. |\n| `details` | object | Объект, описывающий найденные реквизиты ордера (детальная структура описана ниже). |\n| `status` | string | Текущий статус ордера. |\n| `createdAt` | string (date) | Дата и время создания ордера в формате UTC. |\n| `expiresAt` | string (date) | Дата и время автоматической отмены ордера по истечению времени в формате UTC. |\n\n### 🔍 Описание вложенного объекта `details`\n\nВнутри успешного ответа (`200 OK`) поле `details` содержит подробную информацию о найденных реквизитах:\n\n| Поле | Тип | Описание |\n| --- | --- | --- |\n| `method` | string | Метод реквизитов. Возможные значения будут описаны далее. |\n| `details` | string | Строка реквизитов. |\n| `organization` | string | Название банка, либо название сотового оператора. |\n\n#### Пример успешного JSON-ответа:\n\n``` json\n{\n  \"id\": \"a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d\",\n  \"internalId\": \"ord-req-2026-001\",\n  \"details\": {\n    \"method\": \"CARD\",\n    \"details\": \"40817810000000001234\",\n    \"organization\": \"Sberbank\"\n  },\n  \"status\": \"NEW\",\n  \"createdAt\": \"2026-07-03T12:00:00Z\",\n  \"expiresAt\": \"2026-07-03T12:15:00Z\"\n}\n\n ```\n\n## ❌ Возможные ошибки (Error Responses)\n\nЕсли запрос не может быть успешно обработан, микросервис возвращает структурированный JSON-объект ошибки. Пожалуйста, ориентируйтесь на код HTTP-статуса и поле `title` для определения причины сбоя.\n\n---\n\n### 1\\. Ошибка валидации (Невалидный запрос)\n\nВозвращается, если клиент нарушил правила заполнения входного JSON (например, передал некорректные типы данных, отрицательную сумму или пропустил обязательные поля). Если ошибок несколько, они перечисляются в поле `detail` через точку.\n\n- **HTTP Status:** `400 Bad Request`\n    \n- **JSON Body:**\n    \n    ``` json\n      {\n      \"title\": \"Invalid request.\",\n      \"status\": 400,\n      \"detail\": \"Field amount should be more than 0. Field internalId should present.\"\n      }\n    \n     ```\n    \n\n---\n\n### 2\\. Реквизиты не найдены\n\nВозвращается в случае, если по заданным в запросе параметрам ордера система не смогла подобрать и выделить подходящие реквизиты.\n\n- **HTTP Status:** `500 Internal Server Error`\n    \n- **JSON Body:**\n    \n    ``` json\n      {\n      \"title\": \"Details were not found.\",\n      \"status\": 500,\n      \"detail\": \"Details were not found. Try again later.\"\n      }\n    \n     ```\n    \n\n---\n\n### 3\\. Ошибка бизнес-валидации\n\nСпецифический сценарий: возвращается, если клиент передал в поле `enableUniqueAmount` значение `false`, но внутренний сервис вернул ответ, в котором поле `amount` оказалось не пустым.\n\n- **HTTP Status:** `500 Internal Server Error`\n    \n- **JSON Body:**\n    \n    ``` json\n      {\n      \"title\": \"Internal server error\",\n      \"status\": 500,\n      \"detail\": \"Something went wrong. Please report this issue to our support team.\"\n      }\n    \n     ```\n    \n\n---\n\n### 4\\. Любые непредвиденные ошибки системы\n\nВозвращается при возникновении любых других непредвиденных, критических сбоев или таймаутов на стороне внутренней инфраструктуры микросервисов.\n\n- **HTTP Status:** `503 Service Unavailable`\n    \n- **JSON Body:**\n    \n    ``` json\n      {\n      \"title\": \"Service Unavailable\",\n      \"status\": 503,\n      \"detail\": \"Something went wrong. Please report this issue to our support team.\"\n      }\n    \n     ```"
+      },
+      "response": []
+    },
+    {
+      "name": "Метод для получения ордера",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/orders/{{id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "orders",
+            "{{id}}"
+          ]
+        },
+        "description": "# 🔍 Получение информации об ордере\n\nМетод позволяет клиенту получить актуальную информацию об ордере по его идентификатору.\n\n---\n\n### ⚙️ Параметры пути (Path Variables)\n\n| Параметр | Тип | Обязательность | Описание |\n| --- | --- | --- | --- |\n| `id` | string | **Да** | Идентификатор ордера. Метод поддерживает поиск как по ID нашей системы (системный UUID), так и по вашему внутреннему `internalId`. |\n\n---\n\n### 📥 Успешный ответ (Response 200 OK)\n\nВ случае успешного поиска возвращается объект с детальной информацией об ордере. Структура ответа полностью идентична методу создания ордера (`POST /orders`):\n\n| Поле | Тип | Описание |\n| --- | --- | --- |\n| `id` | string | Идентификатор ордера в нашей системе (UUID). |\n| `internalId` | string | Идентификатор ордера в сторонней системе (переданный клиентом при создании). |\n| `details` | object | Объект, описывающий реквизиты (содержит поля `method`, `details`, `organization`). |\n| `status` | string | Текущий статус ордера. |\n| `createdAt` | string (date) | UTC дата и время создания ордера. |\n| `expiresAt` | string (date) | UTC дата и время автоматической отмены ордера по истечению времени. |\n\n#### Пример JSON-ответа:\n\n``` json\n{\n  \"id\": \"a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d\",\n  \"internalId\": \"ord-req-2026-001\",\n  \"details\": {\n    \"method\": \"CARD\",\n    \"details\": \"40817810000000001234\",\n    \"organization\": \"Sberbank\"\n  },\n  \"status\": \"NEW\",\n  \"createdAt\": \"2026-07-03T12:00:00Z\",\n  \"expiresAt\": \"2026-07-03T12:15:00Z\"\n}\n\n ```\n\n---\n\n### ❌ Возможные ошибки (Error Responses)\n\n#### 1\\. Ордер не найден\n\nВозвращается в случае, если ордер с указанным `{id}` (или `internalId`) не существует в системе.\n\n- **HTTP Status:** `404 Not Found`\n    \n- **JSON Body:**\n    \n    ``` json\n      {\n      \"title\": \"Order not found.\",\n      \"status\": 404,\n      \"detail\": \"Order with id a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d not found.\"\n      }\n    \n     ```"
+      },
+      "response": []
+    },
+    {
+      "name": "Метод для получения ордеров",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "orders"
+          ]
+        },
+        "description": "# 📋 Получение списка ордеров\n\nМетод позволяет клиенту получить список своих ордеров с поддержкой пагинации и сортировки.\n\n---\n\n### ⚙️ Параметры запроса (Query Params)\n\nПередаются в URL после знака вопроса (например, `/orders?page=0&size=25`).\n\n| Параметр | Тип | Обязательность | По умолчанию | Описание |\n| --- | --- | --- | --- | --- |\n| `page` | integer | Нет | `0` | Номер запрашиваемой страницы (начиная с 0). |\n| `size` | integer | Нет | `25` | Количество ордеров на одной странице. |\n| `sort` | string | Нет | — | Параметр для сортировки списка (например, `createdAt,desc`). |\n\n---\n\n### 📥 Успешный ответ (Response 200 OK)\n\nВ случае успешного запроса возвращается **JSON-массив объектов**, где каждый элемент представляет собой структуру ордера:\n\n| Поле | Тип | Описание |\n| --- | --- | --- |\n| `id` | string | Идентификатор ордера в нашей системе (UUID). |\n| `internalId` | string | Идентификатор ордера в сторонней системе. |\n| `details` | object | Объект, описывающий реквизиты (поля `method`, `details`, `organization`). |\n| `status` | string | Текущий статус ордера. |\n| `createdAt` | string (date) | UTC дата и время создания ордера. |\n| `expiresAt` | string (date) | UTC дата и время автоматической отмены ордера по истечению времени. |\n\n#### Пример JSON-ответа (Массив ордеров):\n\n``` json\n[\n  {\n    \"id\": \"a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d\",\n    \"internalId\": \"ord-req-2026-001\",\n    \"details\": {\n      \"method\": \"CARD\",\n      \"details\": \"40817810000000001234\",\n      \"organization\": \"Sberbank\"\n    },\n    \"status\": \"NEW\",\n    \"createdAt\": \"2026-07-03T12:00:00Z\",\n    \"expiresAt\": \"2026-07-03T12:15:00Z\"\n  },\n  {\n    \"id\": \"9f8e7d6c-5b4a-3f2e-1d0c-9b8a7f6e5d4c\",\n    \"internalId\": \"ord-req-2026-002\",\n    \"details\": {\n      \"method\": \"SBP\",\n      \"details\": \"+79991234567\",\n      \"organization\": \"Alfa-Bank\"\n    },\n    \"status\": \"PAID\",\n    \"createdAt\": \"2026-07-03T12:10:00Z\",\n    \"expiresAt\": \"2026-07-03T12:25:00Z\"\n  }\n]\n\n ```"
+      },
+      "response": []
+    },
+    {
+      "name": "Метод для отмены ордера",
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/orders/{{id}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "orders",
+            "{{id}}"
+          ]
+        },
+        "description": "# ❌ Отмена ордера\n\nМетод позволяет клиенту вручную перевести ордер в статус отмены (`CANCELED`).\n\n---\n\n### ⚙️ Параметры пути (Path Variables)\n\n| Параметр | Тип | Обязательность | Описание |\n| --- | --- | --- | --- |\n| `id` | string | **Да** | Идентификатор ордера. Метод поддерживает как системный UUID нашей системы, так и ваш внутренний `internalId`. |\n\n---\n\n### 📥 Успешный ответ (Response 200 OK)\n\nВ случае успешной отмены возвращается объект ордера с обновленным статусом. Структура ответа полностью совпадает с остальными методами:\n\n| Поле | Тип | Описание |\n| --- | --- | --- |\n| `id` | string | Идентификатор ордера в нашей системе (UUID). |\n| `internalId` | string | Идентификатор ордера в сторонней системе. |\n| `details` | object | Объект, описывающий реквизиты (поля `method`, `details`, `organization`). |\n| `status` | string | Статус ордера. После успешного выполнения этого метода всегда равен `CANCELED`. |\n| `createdAt` | string (date) | UTC дата и время создания ордера. |\n| `expiresAt` | string (date) | UTC дата и время автоматической отмены ордера по истечению времени. |\n\n#### Пример JSON-ответа (Ордер отменен):\n\n``` json\n{\n  \"id\": \"a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d\",\n  \"internalId\": \"ord-req-2026-001\",\n  \"details\": {\n    \"method\": \"CARD\",\n    \"details\": \"40817810000000001234\",\n    \"organization\": \"Sberbank\"\n  },\n  \"status\": \"CANCELED\",\n  \"createdAt\": \"2026-07-03T12:00:00Z\",\n  \"expiresAt\": \"2026-07-03T12:15:00Z\"\n}\n\n ```\n\n---\n\n### ❌ Возможные ошибки (Error Responses)\n\n#### 1\\. Ордер не найден\n\nВозвращается, если ордер с указанным `{id}` не существует в системе.\n\n- **HTTP Status:** `404 Not Found`\n    \n- **JSON Body:**\n    \n    ``` json\n      {\n      \"title\": \"Order not found.\",\n      \"status\": 404,\n      \"detail\": \"Order with id a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d not found.\"\n      }\n    \n     ```"
+      },
+      "response": []
+    },
+    {
+      "name": "Метод для прикрепления чека",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/orders/{{id}}/receipts",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "orders",
+            "{{id}}",
+            "receipts"
+          ]
+        },
+        "description": "# 🧾 Прикрепление чека к ордеру\n\nМетод позволяет клиенту загрузить и прикрепить изображение или документ чека к конкретному ордеру. \n\n---\n\n### ⚙️ Параметры пути (Path Variables)\n\n| Параметр | Тип | Обязательность | Описание |\n| :--- | :--- | :--- | :--- |\n| `id` | string | **Да** | Идентификатор ордера (UUID или internalId), к которому прикрепляется чек. |\n\n---\n\n### 🗂️ Формат тела запроса (Request Body)\n\nЗапрос должен отправляться строго в формате **multipart/form-data**. \n\n* **Ключ (Key):** `file` \n* **Тип (Type):** File (бинарный файл изображения чека: JPG, PNG или PDF)\n\n---\n\n### 📥 Успешный ответ (Response 200 OK)\n\nВ случае успешной загрузки и сохранения файла сервер возвращает пустой ответ или стандартный статус успешного выполнения.\n* **HTTP Status:** `200 OK`\n\n---\n\n### ❌ Возможные ошибки (Error Responses)\n\n#### 1. Некорректный заголовок Content-Type (или ордер не найден)\nВозвращается в случае, если заголовок `Content-Type` отсутствует в запросе, либо его значение отличается от `multipart/form-data`.\n\n* **HTTP Status:** `400 Bad Request`\n* **JSON Body:**\n```json\n{\n  \"title\": \"Bad request.\",\n  \"status\": 400,\n  \"detail\": \"Order with id a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d not found.\"\n}\n```"
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          "\r",
+          "const httpMethod = pm.request.method;\r",
+          "const requestPath = pm.request.url.getPath();\r",
+          "const timestamp = Math.floor(Date.now() / 1000).toString();\r",
+          "\r",
+          "let content = \"\";\r",
+          "if ([\"POST\", \"PUT\", \"PATCH\"].includes(httpMethod)) {\r",
+          "    content = pm.request.body.toString() || \"\";\r",
+          "}\r",
+          "\r",
+          "const stringToSign = `${httpMethod}|${requestPath}|${timestamp}|${content}`;\r",
+          "\r",
+          "const apiKey = pm.collectionVariables.get(\"Api-Key\");\r",
+          "const secret = pm.collectionVariables.get(\"secret\");\r",
+          "\r",
+          "const hash = cryptoJS.HmacSHA256(stringToSign, secret).toString(cryptoJS.enc.Hex);\r",
+          "\r",
+          "pm.request.headers.upsert({ key: \"Authorization\", value: apiKey });\r",
+          "pm.request.headers.upsert({ key: \"Signature\", value: hash });\r",
+          "pm.request.headers.upsert({ key: \"X-Timestamp\", value: timestamp });"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "Api-Key",
+      "value": ""
+    },
+    {
+      "key": "secret",
+      "value": ""
+    }
+  ]
+}
