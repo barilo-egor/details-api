@@ -1,10 +1,16 @@
 package tgb.cryptoexchange.detailsapi.service.unit;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -24,6 +30,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
+import static tgb.cryptoexchange.detailsapi.constants.Metrics.DETAILS_REQUEST;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
@@ -42,6 +49,17 @@ class OrderServiceTest {
 
     @InjectMocks
     private OrderService orderService;
+
+    @Spy
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    @Mock
+    private Timer timer;
+
+    @Mock
+    private Timer.Sample sample;
+
+    private MockedStatic<Timer> timerMock;
 
     private CreateOrderDTO createOrderDTO;
 
@@ -63,6 +81,8 @@ class OrderServiceTest {
 
     @BeforeEach
     void setUp() {
+        timerMock = mockStatic(Timer.class);
+
         now = Instant.now();
         orderId = UUID.randomUUID();
         clientOrderTimeout = 300;
@@ -129,13 +149,25 @@ class OrderServiceTest {
                 .build();
     }
 
+    @AfterEach
+    void tearDown() {
+        if (timerMock != null) {
+            timerMock.close();
+            timerMock = null;
+        }
+    }
+
     @Test
     void shouldCreateOrderSuccessfully() {
         when(detailsMapper.orderToRequestDTO(createOrderDTO)).thenReturn(apiDetailsRequestDTO);
-        when(detailsGrpcService.getDetails(apiDetailsRequestDTO)).thenReturn(detailsResponseDTO);
+        when(detailsGrpcService.getDetails(apiDetailsRequestDTO, clientDTO)).thenReturn(detailsResponseDTO);
         when(ordersMapper.createRequestDTO(orderId, createOrderDTO, detailsResponseDTO, clientDTO))
                 .thenReturn(ordersCreateRequestDTO);
         when(apiOrdersGrpcService.createOrder(ordersCreateRequestDTO)).thenReturn(ordersResponseDTO);
+
+        timerMock.when(() -> Timer.start(meterRegistry)).thenReturn(sample);
+        doReturn(timer).when(meterRegistry).timer(anyString(), any(String[].class));
+        when(sample.stop(any(Timer.class))).thenReturn(100L);
 
         var result = orderService.createOrder(createOrderDTO, clientDTO, clientOrderTimeout);
 
@@ -154,9 +186,15 @@ class OrderServiceTest {
                 });
 
         verify(detailsMapper).orderToRequestDTO(createOrderDTO);
-        verify(detailsGrpcService).getDetails(apiDetailsRequestDTO);
+        verify(detailsGrpcService).getDetails(apiDetailsRequestDTO, clientDTO);
         verify(ordersMapper).createRequestDTO(orderId, createOrderDTO, detailsResponseDTO, clientDTO);
         verify(apiOrdersGrpcService).createOrder(ordersCreateRequestDTO);
+
+        verify(meterRegistry, times(1)).timer(
+                eq(DETAILS_REQUEST),
+                any(String[].class)
+        );
+
     }
 
     @Test
@@ -214,11 +252,19 @@ class OrderServiceTest {
                 .createdAt(now)
                 .build();
 
-        when(detailsMapper.orderToRequestDTO(createOrderDTOWithoutUnique)).thenReturn(apiDetailsRequestDTOWithoutUnique);
-        when(detailsGrpcService.getDetails(apiDetailsRequestDTOWithoutUnique)).thenReturn(detailsResponseDTOWithoutUnique);
-        when(ordersMapper.createRequestDTO(orderId, createOrderDTOWithoutUnique, detailsResponseDTOWithoutUnique, clientDTO))
+        when(detailsMapper.orderToRequestDTO(createOrderDTOWithoutUnique)).thenReturn(
+                apiDetailsRequestDTOWithoutUnique);
+        when(detailsGrpcService.getDetails(apiDetailsRequestDTOWithoutUnique, clientDTO)).thenReturn(
+                detailsResponseDTOWithoutUnique);
+        when(ordersMapper.createRequestDTO(orderId, createOrderDTOWithoutUnique, detailsResponseDTOWithoutUnique,
+                clientDTO))
                 .thenReturn(ordersCreateRequestDTOWithoutUnique);
-        when(apiOrdersGrpcService.createOrder(ordersCreateRequestDTOWithoutUnique)).thenReturn(ordersResponseDTOWithoutUnique);
+        when(apiOrdersGrpcService.createOrder(ordersCreateRequestDTOWithoutUnique)).thenReturn(
+                ordersResponseDTOWithoutUnique);
+
+        timerMock.when(() -> Timer.start(meterRegistry)).thenReturn(sample);
+        doReturn(timer).when(meterRegistry).timer(anyString(), any(String[].class));
+        when(sample.stop(any(Timer.class))).thenReturn(100L);
 
         var result = orderService.createOrder(createOrderDTOWithoutUnique, clientDTO, clientOrderTimeout);
 
@@ -232,8 +278,9 @@ class OrderServiceTest {
                 });
 
         verify(detailsMapper).orderToRequestDTO(createOrderDTOWithoutUnique);
-        verify(detailsGrpcService).getDetails(apiDetailsRequestDTOWithoutUnique);
-        verify(ordersMapper).createRequestDTO(orderId, createOrderDTOWithoutUnique, detailsResponseDTOWithoutUnique, clientDTO);
+        verify(detailsGrpcService).getDetails(apiDetailsRequestDTOWithoutUnique, clientDTO);
+        verify(ordersMapper).createRequestDTO(orderId, createOrderDTOWithoutUnique, detailsResponseDTOWithoutUnique,
+                clientDTO);
         verify(apiOrdersGrpcService).createOrder(ordersCreateRequestDTOWithoutUnique);
     }
 
@@ -412,10 +459,14 @@ class OrderServiceTest {
         var timeout = 600;
 
         when(detailsMapper.orderToRequestDTO(createOrderDTO)).thenReturn(apiDetailsRequestDTO);
-        when(detailsGrpcService.getDetails(apiDetailsRequestDTO)).thenReturn(detailsResponseDTO);
+        when(detailsGrpcService.getDetails(apiDetailsRequestDTO, clientDTO)).thenReturn(detailsResponseDTO);
         when(ordersMapper.createRequestDTO(orderId, createOrderDTO, detailsResponseDTO, clientDTO))
                 .thenReturn(ordersCreateRequestDTO);
         when(apiOrdersGrpcService.createOrder(ordersCreateRequestDTO)).thenReturn(ordersResponseDTO);
+
+        timerMock.when(() -> Timer.start(meterRegistry)).thenReturn(sample);
+        doReturn(timer).when(meterRegistry).timer(anyString(), any(String[].class));
+        when(sample.stop(any(Timer.class))).thenReturn(100L);
 
         var result = orderService.createOrder(createOrderDTO, clientDTO, timeout);
 
@@ -429,16 +480,20 @@ class OrderServiceTest {
     @Test
     void shouldVerifyOrderFlowSequence() {
         when(detailsMapper.orderToRequestDTO(createOrderDTO)).thenReturn(apiDetailsRequestDTO);
-        when(detailsGrpcService.getDetails(apiDetailsRequestDTO)).thenReturn(detailsResponseDTO);
+        when(detailsGrpcService.getDetails(apiDetailsRequestDTO, clientDTO)).thenReturn(detailsResponseDTO);
         when(ordersMapper.createRequestDTO(orderId, createOrderDTO, detailsResponseDTO, clientDTO))
                 .thenReturn(ordersCreateRequestDTO);
         when(apiOrdersGrpcService.createOrder(ordersCreateRequestDTO)).thenReturn(ordersResponseDTO);
+
+        timerMock.when(() -> Timer.start(meterRegistry)).thenReturn(sample);
+        doReturn(timer).when(meterRegistry).timer(anyString(), any(String[].class));
+        when(sample.stop(any(Timer.class))).thenReturn(100L);
 
         orderService.createOrder(createOrderDTO, clientDTO, clientOrderTimeout);
 
         var inOrder = inOrder(detailsMapper, detailsGrpcService, ordersMapper, apiOrdersGrpcService);
         inOrder.verify(detailsMapper).orderToRequestDTO(createOrderDTO);
-        inOrder.verify(detailsGrpcService).getDetails(apiDetailsRequestDTO);
+        inOrder.verify(detailsGrpcService).getDetails(apiDetailsRequestDTO, clientDTO);
         inOrder.verify(ordersMapper).createRequestDTO(orderId, createOrderDTO, detailsResponseDTO, clientDTO);
         inOrder.verify(apiOrdersGrpcService).createOrder(ordersCreateRequestDTO);
     }
@@ -467,10 +522,13 @@ class OrderServiceTest {
                 .build();
 
         when(detailsMapper.orderToRequestDTO(createOrderWithoutCallback)).thenReturn(apiDetailsRequestDTO);
-        when(detailsGrpcService.getDetails(apiDetailsRequestDTO)).thenReturn(detailsResponseDTO);
+        when(detailsGrpcService.getDetails(apiDetailsRequestDTO, clientDTO)).thenReturn(detailsResponseDTO);
         when(ordersMapper.createRequestDTO(orderId, createOrderWithoutCallback, detailsResponseDTO, clientDTO))
                 .thenReturn(ordersCreateWithoutCallback);
         when(apiOrdersGrpcService.createOrder(ordersCreateWithoutCallback)).thenReturn(ordersResponseDTO);
+        timerMock.when(() -> Timer.start(meterRegistry)).thenReturn(sample);
+        doReturn(timer).when(meterRegistry).timer(anyString(), any(String[].class));
+        when(sample.stop(any(Timer.class))).thenReturn(100L);
 
         var result = orderService.createOrder(createOrderWithoutCallback, clientDTO, clientOrderTimeout);
 
@@ -480,4 +538,5 @@ class OrderServiceTest {
         verify(ordersMapper).createRequestDTO(orderId, createOrderWithoutCallback, detailsResponseDTO, clientDTO);
         verify(apiOrdersGrpcService).createOrder(ordersCreateWithoutCallback);
     }
+
 }

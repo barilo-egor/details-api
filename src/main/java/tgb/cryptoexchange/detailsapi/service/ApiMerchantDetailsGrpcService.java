@@ -2,16 +2,21 @@ package tgb.cryptoexchange.detailsapi.service;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.grpc.StatusRuntimeException;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import tgb.cryptoexchange.detailsapi.constants.Metrics;
 import tgb.cryptoexchange.detailsapi.dto.ApiDetailsRequestDTO;
 import tgb.cryptoexchange.detailsapi.dto.ApiDetailsResponseDTO;
+import tgb.cryptoexchange.detailsapi.dto.ClientByApiKeyDTO;
 import tgb.cryptoexchange.detailsapi.exceptions.BaseException;
 import tgb.cryptoexchange.detailsapi.exceptions.MerchantDetailsNotFoundException;
 import tgb.cryptoexchange.detailsapi.mapper.DetailsMapper;
 import tgb.cryptoexchange.grpc.generated.GetDetailsGrpc;
 import tgb.cryptoexchange.grpc.generated.GetDetailsResponseGrpc;
 import tgb.cryptoexchange.grpc.generated.MerchantDetailsServiceGrpc;
+
+import static tgb.cryptoexchange.detailsapi.constants.Metrics.CLIENT_ID;
 
 @Service
 @Slf4j
@@ -21,10 +26,15 @@ public class ApiMerchantDetailsGrpcService extends GrpcService {
 
     private final DetailsMapper detailsMapper;
 
-    public ApiMerchantDetailsGrpcService(DetailsMapper detailsMapper,
+    public static final String STATUS = "status";
+
+    private final MeterRegistry meterRegistry;
+
+    public ApiMerchantDetailsGrpcService(DetailsMapper detailsMapper, MeterRegistry meterRegistry,
             MerchantDetailsServiceGrpc.MerchantDetailsServiceFutureStub detailsFutureStub) {
         this.detailsFutureStub = detailsFutureStub;
         this.detailsMapper = detailsMapper;
+        this.meterRegistry = meterRegistry;
     }
 
     /**
@@ -35,7 +45,7 @@ public class ApiMerchantDetailsGrpcService extends GrpcService {
      * @throws MerchantDetailsNotFoundException если реквизиты не найдены (gRPC NOT_FOUND).
      * @throws BaseException                    при системных ошибках gRPC или сбоях сети.
      */
-    public ApiDetailsResponseDTO getDetails(ApiDetailsRequestDTO requestDTO) {
+    public ApiDetailsResponseDTO getDetails(ApiDetailsRequestDTO requestDTO, ClientByApiKeyDTO client) {
         GetDetailsGrpc request = detailsMapper.detailsRequestDTOToGrpc(requestDTO);
         ListenableFuture<GetDetailsResponseGrpc> grpcFuture = detailsFutureStub.getDetails(request);
         try {
@@ -47,12 +57,18 @@ public class ApiMerchantDetailsGrpcService extends GrpcService {
                 com.google.rpc.Status status = io.grpc.protobuf.StatusProto.fromThrowable(statusEx);
                 if (status != null && status.getCode() == com.google.rpc.Code.NOT_FOUND_VALUE) {
                     log.warn("Не найдены реквизиты для {}", requestDTO);
+                    meterRegistry.counter(Metrics.DETAILS_REQUEST_NO_DETAILS, CLIENT_ID,
+                            String.valueOf(client.getClientId()), STATUS, "not_found").increment();
                     throw new MerchantDetailsNotFoundException();
                 }
                 log.error("Системная gRPC ошибка от merchant-details: код={}", statusEx.getStatus().getCode());
+                meterRegistry.counter(Metrics.DETAILS_REQUEST_ERROR, CLIENT_ID,
+                        String.valueOf(client.getClientId()), STATUS, "error").increment();
                 throw new BaseException("gRPC service error");
             }
             log.error("Непредвиденная ошибка сети при вызове gRPC", ex);
+            meterRegistry.counter(Metrics.DETAILS_REQUEST_ERROR, CLIENT_ID,
+                    String.valueOf(client.getClientId()), STATUS, "error").increment();
             throw new BaseException("System connection error");
         }
     }

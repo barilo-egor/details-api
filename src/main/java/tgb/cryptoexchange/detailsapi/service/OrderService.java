@@ -1,8 +1,11 @@
 package tgb.cryptoexchange.detailsapi.service;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import tgb.cryptoexchange.detailsapi.constants.Metrics;
 import tgb.cryptoexchange.detailsapi.dto.*;
 import tgb.cryptoexchange.detailsapi.mapper.DetailsMapper;
 import tgb.cryptoexchange.detailsapi.mapper.OrdersMapper;
@@ -10,6 +13,8 @@ import tgb.cryptoexchange.detailsapi.mapper.OrdersMapper;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+
+import static tgb.cryptoexchange.detailsapi.constants.Metrics.CLIENT_ID;
 
 @Service
 @Slf4j
@@ -23,12 +28,15 @@ public class OrderService {
 
     private final ApiOrdersGrpcService apiOrdersGrpcService;
 
+    private final MeterRegistry meterRegistry;
+
     public OrderService(ApiMerchantDetailsGrpcService detailsGrpcService, DetailsMapper detailsMapper,
-            OrdersMapper ordersMapper, ApiOrdersGrpcService apiOrdersGrpcService) {
+            OrdersMapper ordersMapper, ApiOrdersGrpcService apiOrdersGrpcService, MeterRegistry meterRegistry) {
         this.detailsGrpcService = detailsGrpcService;
         this.detailsMapper = detailsMapper;
         this.ordersMapper = ordersMapper;
         this.apiOrdersGrpcService = apiOrdersGrpcService;
+        this.meterRegistry = meterRegistry;
     }
 
     /**
@@ -47,7 +55,9 @@ public class OrderService {
         ApiDetailsRequestDTO apiDetailsRequestDTO = detailsMapper.orderToRequestDTO(clientRequest);
         UUID orderId = apiDetailsRequestDTO.getInternalId();
 
-        ApiDetailsResponseDTO detailsResponseDTO = detailsGrpcService.getDetails(apiDetailsRequestDTO);
+        Timer.Sample sample = Timer.start(meterRegistry);
+        ApiDetailsResponseDTO detailsResponseDTO = detailsGrpcService.getDetails(apiDetailsRequestDTO, client);
+        sample.stop(meterRegistry.timer(Metrics.DETAILS_REQUEST, CLIENT_ID, String.valueOf(client.getClientId())));
         log.debug("Для клиентского запроса {} найдены реквизиты в merchant-details {}", clientRequest,
                 detailsResponseDTO);
 

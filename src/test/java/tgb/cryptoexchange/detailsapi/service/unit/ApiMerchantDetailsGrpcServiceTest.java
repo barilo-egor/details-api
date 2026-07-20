@@ -4,6 +4,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 import io.grpc.protobuf.StatusProto;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tgb.cryptoexchange.detailsapi.dto.ApiDetailsRequestDTO;
 import tgb.cryptoexchange.detailsapi.dto.ApiDetailsResponseDTO;
+import tgb.cryptoexchange.detailsapi.dto.ClientByApiKeyDTO;
 import tgb.cryptoexchange.detailsapi.dto.DetailsDTO;
 import tgb.cryptoexchange.detailsapi.enums.RequestMethod;
 import tgb.cryptoexchange.detailsapi.exceptions.BaseException;
@@ -32,6 +35,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static tgb.cryptoexchange.detailsapi.constants.Metrics.DETAILS_REQUEST_ERROR;
+import static tgb.cryptoexchange.detailsapi.constants.Metrics.DETAILS_REQUEST_NO_DETAILS;
 
 @ExtendWith(MockitoExtension.class)
 class ApiMerchantDetailsGrpcServiceTest {
@@ -48,15 +53,25 @@ class ApiMerchantDetailsGrpcServiceTest {
     @InjectMocks
     private ApiMerchantDetailsGrpcService service;
 
+    @Mock
+    private MeterRegistry meterRegistry;
+
+    @Mock
+    private Counter counter;
+
     private UUID requestId;
 
     private UUID internalId;
+
+    private ClientByApiKeyDTO clientByApiKeyDTO;
 
     @BeforeEach
     void setUp() {
         requestId = UUID.randomUUID();
 
         internalId = UUID.randomUUID();
+
+        clientByApiKeyDTO = ClientByApiKeyDTO.builder().clientId(123L).build();
     }
 
     @Test
@@ -116,7 +131,7 @@ class ApiMerchantDetailsGrpcServiceTest {
         }).when(listenableFuture).addListener(any(Runnable.class), any());
         when(detailsMapper.grpcResponseToDTO(grpcResponse)).thenReturn(expectedResponse);
 
-        var result = service.getDetails(requestDTO);
+        var result = service.getDetails(requestDTO, clientByApiKeyDTO);
 
         assertThat(result)
                 .isNotNull()
@@ -138,6 +153,15 @@ class ApiMerchantDetailsGrpcServiceTest {
         verify(listenableFuture).get();
         verify(listenableFuture).addListener(any(Runnable.class), any());
         verify(detailsMapper).grpcResponseToDTO(grpcResponse);
+
+        verify(meterRegistry, never()).counter(
+                eq(DETAILS_REQUEST_NO_DETAILS),
+                any(String[].class)
+        );
+        verify(meterRegistry, never()).counter(
+                eq(DETAILS_REQUEST_ERROR),
+                any(String[].class)
+        );
     }
 
     @Test
@@ -191,7 +215,7 @@ class ApiMerchantDetailsGrpcServiceTest {
         }).when(listenableFuture).addListener(any(Runnable.class), any());
         when(detailsMapper.grpcResponseToDTO(grpcResponse)).thenReturn(expectedResponse);
 
-        var result = service.getDetails(requestDTO);
+        var result = service.getDetails(requestDTO, clientByApiKeyDTO);
 
         assertThat(result).isNotNull();
         assertThat(result.getAmount()).isEqualTo(500);
@@ -251,7 +275,7 @@ class ApiMerchantDetailsGrpcServiceTest {
         }).when(listenableFuture).addListener(any(Runnable.class), any());
         when(detailsMapper.grpcResponseToDTO(grpcResponse)).thenReturn(expectedResponse);
 
-        var result = service.getDetails(requestDTO);
+        var result = service.getDetails(requestDTO, clientByApiKeyDTO);
 
         assertThat(result).isNotNull();
         assertThat(result.getDetails().getRequestMethod()).isEqualTo("CARD");
@@ -290,8 +314,9 @@ class ApiMerchantDetailsGrpcServiceTest {
             runnable.run();
             return null;
         }).when(listenableFuture).addListener(any(Runnable.class), any());
+        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
 
-        assertThatThrownBy(() -> service.getDetails(requestDTO))
+        assertThatThrownBy(() -> service.getDetails(requestDTO, clientByApiKeyDTO))
                 .isInstanceOf(MerchantDetailsNotFoundException.class)
                 .hasNoCause();
 
@@ -300,6 +325,15 @@ class ApiMerchantDetailsGrpcServiceTest {
         verify(listenableFuture).get();
         verify(listenableFuture).addListener(any(Runnable.class), any());
         verify(detailsMapper, never()).grpcResponseToDTO(any());
+
+        verify(meterRegistry, times(1)).counter(
+                eq(DETAILS_REQUEST_NO_DETAILS),
+                any(String[].class)
+        );
+        verify(meterRegistry, never()).counter(
+                eq(DETAILS_REQUEST_ERROR),
+                any(String[].class)
+        );
     }
 
     @Test
@@ -332,10 +366,19 @@ class ApiMerchantDetailsGrpcServiceTest {
             runnable.run();
             return null;
         }).when(listenableFuture).addListener(any(Runnable.class), any());
+        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
 
-        assertThatThrownBy(() -> service.getDetails(requestDTO))
+        assertThatThrownBy(() -> service.getDetails(requestDTO, clientByApiKeyDTO))
                 .isInstanceOf(MerchantDetailsNotFoundException.class)
                 .hasNoCause();
+        verify(meterRegistry, times(1)).counter(
+                eq(DETAILS_REQUEST_NO_DETAILS),
+                any(String[].class)
+        );
+        verify(meterRegistry, never()).counter(
+                eq(DETAILS_REQUEST_ERROR),
+                any(String[].class)
+        );
     }
 
     @Test
@@ -368,10 +411,19 @@ class ApiMerchantDetailsGrpcServiceTest {
             runnable.run();
             return null;
         }).when(listenableFuture).addListener(any(Runnable.class), any());
+        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
 
-        assertThatThrownBy(() -> service.getDetails(requestDTO))
+        assertThatThrownBy(() -> service.getDetails(requestDTO, clientByApiKeyDTO))
                 .isInstanceOf(BaseException.class)
                 .hasMessage("gRPC service error");
+        verify(meterRegistry, never()).counter(
+                eq(DETAILS_REQUEST_NO_DETAILS),
+                any(String[].class)
+        );
+        verify(meterRegistry, times(1)).counter(
+                eq(DETAILS_REQUEST_ERROR),
+                any(String[].class)
+        );
     }
 
     @Test
@@ -404,8 +456,9 @@ class ApiMerchantDetailsGrpcServiceTest {
             runnable.run();
             return null;
         }).when(listenableFuture).addListener(any(Runnable.class), any());
+        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
 
-        assertThatThrownBy(() -> service.getDetails(requestDTO))
+        assertThatThrownBy(() -> service.getDetails(requestDTO, clientByApiKeyDTO))
                 .isInstanceOf(BaseException.class)
                 .hasMessage("gRPC service error");
     }
@@ -440,8 +493,9 @@ class ApiMerchantDetailsGrpcServiceTest {
             runnable.run();
             return null;
         }).when(listenableFuture).addListener(any(Runnable.class), any());
+        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
 
-        assertThatThrownBy(() -> service.getDetails(requestDTO))
+        assertThatThrownBy(() -> service.getDetails(requestDTO, clientByApiKeyDTO))
                 .isInstanceOf(BaseException.class)
                 .hasMessage("gRPC service error");
     }
@@ -474,8 +528,9 @@ class ApiMerchantDetailsGrpcServiceTest {
             runnable.run();
             return null;
         }).when(listenableFuture).addListener(any(Runnable.class), any());
+        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
 
-        assertThatThrownBy(() -> service.getDetails(requestDTO))
+        assertThatThrownBy(() -> service.getDetails(requestDTO, clientByApiKeyDTO))
                 .isInstanceOf(BaseException.class)
                 .hasMessage("System connection error");
     }
@@ -508,8 +563,9 @@ class ApiMerchantDetailsGrpcServiceTest {
             runnable.run();
             return null;
         }).when(listenableFuture).addListener(any(Runnable.class), any());
+        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
 
-        assertThatThrownBy(() -> service.getDetails(requestDTO))
+        assertThatThrownBy(() -> service.getDetails(requestDTO, clientByApiKeyDTO))
                 .isInstanceOf(BaseException.class)
                 .hasMessage("System connection error");
 
@@ -545,8 +601,9 @@ class ApiMerchantDetailsGrpcServiceTest {
             runnable.run();
             return null;
         }).when(listenableFuture).addListener(any(Runnable.class), any());
+        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
 
-        assertThatThrownBy(() -> service.getDetails(requestDTO))
+        assertThatThrownBy(() -> service.getDetails(requestDTO, clientByApiKeyDTO))
                 .isInstanceOf(BaseException.class)
                 .hasMessage("System connection error");
     }
@@ -581,15 +638,17 @@ class ApiMerchantDetailsGrpcServiceTest {
             runnable.run();
             return null;
         }).when(listenableFuture).addListener(any(Runnable.class), any());
+        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
 
-        assertThatThrownBy(() -> service.getDetails(requestDTO))
+        assertThatThrownBy(() -> service.getDetails(requestDTO, clientByApiKeyDTO))
                 .isInstanceOf(BaseException.class)
                 .hasMessage("gRPC service error");
     }
 
     @Test
     void shouldHandleNullRequestDTO() {
-        assertThatThrownBy(() -> service.getDetails(null))
+        when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
+        assertThatThrownBy(() -> service.getDetails(null, clientByApiKeyDTO))
                 .isInstanceOf(BaseException.class)
                 .hasMessage("System connection error");
     }
@@ -627,7 +686,7 @@ class ApiMerchantDetailsGrpcServiceTest {
         }).when(listenableFuture).addListener(any(Runnable.class), any());
         when(detailsMapper.grpcResponseToDTO(grpcResponse)).thenReturn(null);
 
-        var result = service.getDetails(requestDTO);
+        var result = service.getDetails(requestDTO, clientByApiKeyDTO);
 
         assertThat(result).isNull();
     }
@@ -672,7 +731,7 @@ class ApiMerchantDetailsGrpcServiceTest {
         }).when(listenableFuture).addListener(any(Runnable.class), any());
         when(detailsMapper.grpcResponseToDTO(grpcResponse)).thenReturn(expectedResponse);
 
-        service.getDetails(requestDTO);
+        service.getDetails(requestDTO, clientByApiKeyDTO);
 
         var requestCaptor = ArgumentCaptor.forClass(GetDetailsGrpc.class);
         verify(detailsFutureStub).getDetails(requestCaptor.capture());
@@ -742,7 +801,7 @@ class ApiMerchantDetailsGrpcServiceTest {
         }).when(listenableFuture).addListener(any(Runnable.class), any());
         when(detailsMapper.grpcResponseToDTO(grpcResponse)).thenReturn(expectedResponse);
 
-        var result = service.getDetails(requestDTO);
+        var result = service.getDetails(requestDTO, clientByApiKeyDTO);
 
         assertThat(result)
                 .isNotNull()
